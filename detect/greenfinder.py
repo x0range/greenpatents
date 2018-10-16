@@ -79,7 +79,7 @@ def parse_single(tfile, patterns, df):
         detected = find_patterns(title, abstract, patterns)
         if sum(detected) > 0:
             df.loc[key] = detected
-        return df
+    return df
 
 def main():
     """Main function; searches in all files for all patterns, saves as pickle"""
