@@ -201,3 +201,312 @@ def pattern11_Environmental_Recovery_recycling(text):
     if re.search(re.compile(r"\bcombust\w*"), text) and re.search(re.compile(r"\bCFBC"), text):
         return True
     return False
+
+def pattern12_Renewable_All_purpose(text):
+    if re.search(re.compile(r"\brenewabl\w*"), text) and \
+                         (re.search(re.compile(r"\benerg\w*"), text) or re.search(re.compile(r"\belectric\w*"), text)):
+        return True
+    return False
+    
+def pattern13_Renewable_Wave_tidal(text):
+    if re.search(re.compile(r"\belectric\w*"), text):
+        if re.search(re.compile(r"\btwo basin schem\w*"), text):
+            return True
+        if re.search(re.compile(r"\bwave\w* energ\w*"), text):
+            return True
+        if re.search(re.compile(r"\btid\w* energ\w*"), text):
+            return True
+    return False
+
+def pattern14_Renewable_Biomass(text):
+    if re.search(re.compile(r"\bbiomass\w*"), text):
+        return True
+    if re.search(re.compile(r"\benzymat\w* hydrolys\w*"), text):
+        return True
+    if re.search(re.compile(r"\bbio\w*bas\w* product\w*"), text):
+        return True
+    return False
+    
+def pattern15_Renewable_Wind(text):
+    if re.search(re.compile(r"\bwind power\w*"), text):
+        return True
+    if re.search(re.compile(r"\bwind energ\w*"), text):
+        return True
+    if re.search(re.compile(r"\bwind farm\w*"), text):
+        return True
+    if re.search(re.compile(r"\bturbin\w*"), text) and re.search(re.compile(r"\bwind\w*"), text):
+        return True
+    return False
+
+def pattern16_Renewable_Geothermal(text):
+    if re.search(re.compile(r"\bwhole system\w*"), text) and re.search(re.compile(r"\bgeotherm\w*"), text):     # subset of next one below
+        return True
+    if re.search(re.compile(r"\bgeotherm\w*"), text):
+        return True
+    if re.search(re.compile(r"\bgeoexchang\w*"), text):
+        return True
+    return False
+
+def pattern17_Renewable_PV_solar(text):
+    if re.search(re.compile(r"\bsolar\w*"), text):
+        if re.search(re.compile(r"\bener\w*"), text):
+            return True
+        if re.search(re.compile(r"\blinear fresnel sys\w*"), text):
+            return True
+        if re.search(re.compile(r"\belectric\w*"), text):
+            return True
+        if re.search(re.compile(r"\bcell\w*"), text):                   # seems too broad, instead: "solar cell"?
+            return True
+        if re.search(re.compile(r"\bheat\w*"), text):                   # seems too broad
+            return True
+        if re.search(re.compile(r"\bcool\w*"), text):                   # seems too broad
+            return True
+        if re.search(re.compile(r"\bphotovolt\w*"), text):
+            return True
+        if re.search(re.compile(r"\bPV"), text):                        #maybe too broad?       ### 
+            return True
+        if re.search(re.compile(r"\bcdte"), text):
+            return True
+        if re.search(re.compile(r"\bcadmium tellurid\w*"), text):
+            return True
+        if re.search(re.compile(r"\bPVC-U"), text):                     ###
+            return True
+        if re.search(re.compile(r"\bphotoelectr\w*"), text):
+            return True
+        if re.search(re.compile(r"\bphotoactiv\w*"), text):
+            return True
+        if re.search(re.compile(r"\bsol\w*gel\w* process\w*"), text):
+            return True
+        if re.search(re.compile(r"\bevacuat\w* tub\w*"), text):
+            return True
+        if re.search(re.compile(r"\bflat plate collect\w*"), text):
+            return True
+        if re.search(re.compile(r"\broof integr\w* system\w*"), text):
+            return True
+    return False
+
+def pattern18_LowCarb_All_purpose(text):
+    if re.search(re.compile(r"\blow carbon"), text):
+        return True
+    if re.search(re.compile(r"\bzero carbon"), text):
+        return True
+    if re.search(re.compile(r"\bno carbon"), text):
+        return True
+    if re.search(re.compile(r"\b0 carbon"), text):
+        return True
+    if re.search(re.compile(r"\blow\w*carbon"), text):
+        return True
+    if re.search(re.compile(r"\bzero\w*carbon"), text):
+        return True
+    if re.search(re.compile(r"\bno\w*carbon"), text):
+        return True
+    return False
+
+def pattern19_LowCarb_Alt_fuel_vehicle(text):
+    if re.search(re.compile(r"\belectric\w* vehic\w*"), text):
+        return True
+    if re.search(re.compile(r"\bhybrid vehic\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectric\w* motor\w*"), text):
+        return True
+    if re.search(re.compile(r"\bhybrid motor\w*"), text):
+        return True
+    if re.search(re.compile(r"\bhybrid driv\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectric\w* car\w*"), text):
+        return True
+    if re.search(re.compile(r"\bhybrid car\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectric\w* machin\w*"), text):         #seems too broad
+        return True
+    if re.search(re.compile(r"\belectric\w* auto\w*"), text):
+        return True
+    if re.search(re.compile(r"\bhybrid auto\w*"), text):
+        return True
+    if re.search(re.compile(r"\byaw\w* rat\w* sens\w*"), text):
+        return True
+    return False
+    
+def pattern20_LowCarb_Alt_fuels(text):
+    if re.search(re.compile(r"\balternat\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bmainstream\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bfuel cell\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear powe\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear stat\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear plant\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear energ\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear"), text) and re.search(re.compile(r"\belectric\w*"), text):
+        return True
+    if re.search(re.compile(r"\bnuclear fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bfuel\w* process\w*"), text):
+        return True
+    if re.search(re.compile(r"\bporous\w* struct\w*"), text):
+        return True
+    if re.search(re.compile(r"\bporous\w* substrat\w*"), text):
+        return True
+    if re.search(re.compile(r"\bsolid\w* oxid\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bFischer\w*Tropsch\w*"), text):
+        return True
+    if re.search(re.compile(r"\brefus\w* deriv\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\brefus\w*deriv\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bfuel"), text) and re.search(re.compile(r"\bbiotech\w*"), text) and \
+        (re.search(re.compile(r"\bethanol"), text) or re.search(re.compile(r"\bhydrogen\w*"), text)):
+        return True
+    if re.search(re.compile(r"\bbio\w*fuel\w*"), text):                     # subset of previous one above
+        return True
+    if re.search(re.compile(r"\bsynthetic fuel"), text):
+        return True
+    if re.search(re.compile(r"\bcombined heat and power"), text):
+        return True
+    if re.search(re.compile(r"\bsynth\w* gas\w*"), text):
+        return True
+    if re.search(re.compile(r"\bsyngas"), text):
+        return True
+    return False
+
+def pattern21_LowCarb_Electrochemical_processes(text):
+    if re.search(re.compile(r"\belectrochem\w* cell\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectrochem\w* fuel\w*"), text):
+        return True
+    if re.search(re.compile(r"\bmembran\w* electrod\w*"), text):
+        return True
+    if re.search(re.compile(r"\bion\w* exchang\w* membran\w*"), text):
+        return True
+    if re.search(re.compile(r"\bion\w*exchang\w* membran\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectrolyt\w* cell\w*"), text):
+        return True
+    if re.search(re.compile(r"\bcatalyt\w* convers\w*"), text):
+        return True
+    if re.search(re.compile(r"\bsolid\w* separat\w*"), text):
+        return True
+    if re.search(re.compile(r"\bmembran\w* separat\w*"), text):
+        return True
+    if re.search(re.compile(r"\bion\w* exchang\w* resin\w*"), text):
+        return True
+    if re.search(re.compile(r"\bion\w*exchang\w* resin\w*"), text):
+        return True
+    if re.search(re.compile(r"\bproton\w* exchang\w* membra\w*"), text):
+        return True
+    if re.search(re.compile(r"\bproton\w*exchang\w* membra\w*"), text):
+        return True
+    if re.search(re.compile(r"\bcataly\w* reduc\w*"), text):
+        return True
+    if re.search(re.compile(r"\belectrod\w* membra\w*"), text):
+        return True
+    if re.search(re.compile(r"\btherm\w* engin\w*"), text):
+        return True
+    return False
+
+def pattern22_LowCarb_Battery(text):
+    if re.search(re.compile(r"\bbatter\w*"), text) or re.search(re.compile(r"\baccumul\w*"), text):
+        if re.search(re.compile(r"\bcharg\w*"), text):
+            return True
+        if re.search(re.compile(r"\brechar\w*"), text):
+            return True
+        if re.search(re.compile(r"\bturbocharg\w*"), text):
+            return True
+        if re.search(re.compile(r"\bhigh capacit\w*"), text):
+            return True
+        if re.search(re.compile(r"\brapid charg\w*"), text):
+            return True
+        if re.search(re.compile(r"\blong life"), text):
+            return True
+        if re.search(re.compile(r"\bultra\w*"), text):
+            return True
+        if re.search(re.compile(r"\bsolar"), text):
+            return True
+        if re.search(re.compile(r"\bno lead"), text):
+            return True
+        if re.search(re.compile(r"\bno mercury"), text):
+            return True
+        if re.search(re.compile(r"\bno cadmium"), text):
+            return True
+        if re.search(re.compile(r"\blithium\w*ion\w*"), text):
+            return True
+        if re.search(re.compile(r"\blithium\w* ion\w*"), text):
+            return True
+        if re.search(re.compile(r"\bLi\w*ion\w*"), text):               ###
+            return True
+    return False
+
+def pattern23_LowCarb_Additional_energy(text):
+    if re.search(re.compile(r"\baddition\w* energ\w* sourc\w*"), text):
+        return True
+    if re.search(re.compile(r"\baddition\w* sourc\w* of energ\w*"), text):
+        return True
+    return False
+
+def pattern24_LowCarb_Carbon_capture_storage(text):
+    if re.search(re.compile(r"\bcarbon"), text) and re.search(re.compile(r"\bcaptu\w*"), text):
+        return True
+    if re.search(re.compile(r"\bcarbon"), text) and re.search(re.compile(r"\bstor\w*"), text):
+        return True
+    if re.search(re.compile(r"\bcarbon dioxid\w*"), text):
+        return True
+    if re.search(re.compile(r"\bCO2"), text):
+        return True
+    return False
+
+def pattern25_LowCarb_Energy_management(text):
+    if re.search(re.compile(r"\bener\w* sav\w*"), text):
+        return True
+    if re.search(re.compile(r"\bener\w* effic\w*"), text):
+        return True
+    if re.search(re.compile(r"\benerg\w*effic\w*"), text):
+        return True
+    if re.search(re.compile(r"\benerg\w*sav\w*"), text):
+        return True
+    if re.search(re.compile(r"\blight\w* emit\w* diod\w*"), text):
+        return True
+    if re.search(re.compile(r"\bLED"), text):
+        return True
+    if re.search(re.compile(r"\borganic LED"), text):
+        return True
+    if re.search(re.compile(r"\bOLED"), text):
+        return True
+    if re.search(re.compile(r"\bCFL"), text):
+        return True
+    if re.search(re.compile(r"\bcompact fluorescent\w*"), text):
+        return True
+    if re.search(re.compile(r"\benerg\w* conserve\w*"), text):
+        return True
+    return False
+
+def pattern26_LowCarb_Building_technologies(text):
+    if re.search(re.compile(r"\bbuild\w*"), text) or re.search(re.compile(r"\bconstruct\w*"), text):
+        if re.search(re.compile(r"\binsula\w*"), text):
+            return True
+        if re.search(re.compile(r"\bheat\w* retent\w*"), text):
+            return True
+        if re.search(re.compile(r"\bheat\w* exchang\w*"), text):
+            return True
+        if re.search(re.compile(r"\bheat\w* pump\w*"), text):
+            return True
+        if re.search(re.compile(r"\btherm\w* exchang\w*"), text):
+            return True
+        if re.search(re.compile(r"\btherm\w* decompos\w*"), text):
+            return True
+        if re.search(re.compile(r"\btherm\w* energ\w*"), text):
+            return True
+        if re.search(re.compile(r"\btherm\w* communic\w*"), text):
+            return True
+        if re.search(re.compile(r"\bthermoplast\w*"), text):
+            return True
+        if re.search(re.compile(r"\bthermocoup\w*"), text):
+            return True
+        if re.search(re.compile(r"\bheat\w* recover\w*"), text):
+            return True
+    return False
