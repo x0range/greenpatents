@@ -187,27 +187,30 @@ class CitationSpace():
                 with open(citationCountFileName, "wb") as ofile:
                     pickle.dump(self.received_citation_count, ofile, protocol=pickle.HIGHEST_PROTOCOL)
         
-    def compute_network_pagerank(self):
+    def compute_network_pagerank(self, validate=False):
         """Method to compute network pagerank. Requires citation matrix to be populated.
-            No Arguments
+            Arguments:
+                validate - bool - should this pagerank computation method be validated by comparison to the one in networkx
             Returns:
                 None."""
-        """"""
+        """Compute and save pagerank"""
         self.pageranks = comp_PageRank(self.DGA)
         
-        ## validation
-        #net = nx.from_scipy_sparse_matrix(self.DGA, create_using=nx.DiGraph())
-        #pr = nx.pagerank(net)           #default alpha=.85
-        #try:
-        #    assert self.pageranks == pr, "Pageranks not identical"
-        #except:
-        #    pass
-        #try:
-        #    diffs = np.asarray(list(pr.values()))-np.asarray(self.pageranks)
-        #    assert (abs(diffs) < 10**-4).all(), "Pageranks not even close"
-        #except:
-        #    print(diffs)
-        
+        """ validation with networkx """
+        if validate:
+            print("Valitation of pagerank computation requested. This is not recommended, will take a very long time, and comsume large amounts of memory.")
+            net = nx.from_scipy_sparse_matrix(self.DGA, create_using=nx.DiGraph())
+            pr = nx.pagerank(net)           #default alpha=.85
+            try:
+                assert self.pageranks == pr, "Pageranks not identical"
+            except:
+                pass
+            try:
+                diffs = np.asarray(list(pr.values()))-np.asarray(self.pageranks)
+                assert (abs(diffs) < 10**-4).all(), "Pageranks not even close"
+            except:
+                print(diffs)
+            
 def comp_PageRank(DG, d=0.85, precision_limit = 10**-8):
     """ Function to compute PageRank from scipy sparse matrix. Following 
            - https://en.wikipedia.org/wiki/PageRank
