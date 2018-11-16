@@ -11,7 +11,23 @@
         as npz file.
    The script defines two classes:
     - GreenInventory as search pattern class.
-    - GreenRecord as record class"""
+    - GreenRecord as record class
+
+The script is intended to be run in 10 different instances in different shells after an initial
+setup of the matrices and dataframe. First do the setup:
+    python3 parse_CPC.py
+And then run the 10 chunks:
+    python3 parse_CPC.py 0
+    python3 parse_CPC.py 1
+    python3 parse_CPC.py 2
+    python3 parse_CPC.py 3
+    python3 parse_CPC.py 4
+    python3 parse_CPC.py 5
+    python3 parse_CPC.py 6
+    python3 parse_CPC.py 7
+    python3 parse_CPC.py 8
+    python3 parse_CPC.py 9
+"""
 
 """inport modules"""
 import numpy as np
@@ -21,6 +37,7 @@ import pickle
 import pandas as pd
 import glob
 import pdb
+import sys
 
 
 """Class definitions"""
@@ -99,22 +116,42 @@ class GreenInventory:
 
 """Green patents record class. Can parse classification files, apply search patterns and save records"""
 class GreennessRecord():
-    def __init__(self):
+    def __init__(self, chunk_idx = None):
         """Constructor method.
            Assumes that the classification files from USPTO US_Grant_CPC_MCF_Text_2018-08-01.zip are unpacked
             in the current working directory, i.e. the individual files are "./US_Grant_CPC_MCF_Text_2018-08-01/*"
-            Arguments: None
+            With the optional argument, it is possible to parse only a chunk of 20 of the 200 source files. This 
+            allows for multiple instances of the script to work in parallel, the matrices and data frames can
+            afterwards be combined. (This requires the matrices to already be set up, which is done at the beginning
+            of running this script without optional argument before)
+            Arguments: 
+                chunk_idx - int \in [0,9] - ch
             Returns class instance."""
         
         """Identify classification files"""
         self.classfilelist = glob.glob("./US_Grant_CPC_MCF_Text_2018-08-01/*")
         """for testing and debugging with a smaller data set comment in this line"""
         #self.classfilelist = ["./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08000000.txt"]
+        self.chunk_idx = chunk_idx
         
-        """Prepare matrices"""
-        print("Preparing matrices")
-        self.prepare_lists_and_matrices(self.classfilelist)
+        if chunk_idx is not None:
+            """separated into chunks"""
+            """Classfilelist is split into chunks like so:
+                bounds = list(range(0, 201, 20))[:-1]+[201]
+                classfilelist = [classfilelist[bounds[i]:bounds[i+1]] for i in range(len(bounds)-1)]
+               But hardcoding chunks with filenames avoids errors."""
+            self.classfilelist = [['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00000001.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_00950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_01950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_02950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_03950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_04950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_05950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_06950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_07950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_08950000.txt'], ['./US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09000000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09050000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09100000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09150000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09200000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09250000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09300000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09350000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09400000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09450000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09500000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09550000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09600000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09650000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09700000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09750000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09800000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09850000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09900000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_09950000.txt', './US_Grant_CPC_MCF_Text_2018-08-01/US_Grant_CPC_MCF_10000000.txt']]
+            self.classfilelist = self.classfilelist[chunk_idx] 
+            
+            """Prepare matrices"""
+            print("Preparing matrices")
+            self.reload()
         
+        else:        
+            """Prepare matrices"""
+            print("Preparing matrices")
+            self.prepare_lists_and_matrices(self.classfilelist)
+            
         """Prepare search patterns"""
         print("Preparing search patterns")
         self.GIenvtech = GreenInventory("envtech_03.txt")
@@ -196,8 +233,8 @@ class GreennessRecord():
         self.finalize_greenness_record(patID, is_green_ENVTECH, is_green_IPCGI, class_strings)
         print("")
     
-    def run_and_save(self):
-        """Method to parse all classification files and to record the result.
+    def run(self):
+        """Method to parse all classification files.
             No Arguments
             Returns None"""
         
@@ -208,19 +245,57 @@ class GreennessRecord():
             n += 1
             print("{0:4d}".format(n), end="\r")
             self.search_file(fname)
-        
+    
+    def save(self):
+        """Method to save the current state of data frame, matrixes and node lists.
+            No Arguments
+            Returns None"""
         """Save data frame"""
-        self.pddf.to_pickle("patent_greenness_based_on_CPC.pkl")
-
+        if self.chunk_idx is not None:
+            self.pddf.to_pickle("patent_greenness_based_on_CPC_" + str(self.chunk_idx) + ".pkl")
+        else:
+            self.pddf.to_pickle("patent_greenness_based_on_CPC.pkl")
+        
         """save classification matrices"""
         matrix_handles = [self.classificationmatrix, self.classificationmatrix_coarse]
-        matrix_save_names = ["patent_detailed_classification_matrix.npz", "patent_classification_matrix.npz"]
+        save_list = [self.patlist, self.classlist, self.classlist_coarse]
+        if self.chunk_idx is not None:
+            matrix_save_names = ["patent_detailed_classification_matrix_" + str(self.chunk_idx) + ".npz", "patent_classification_matrix_" + str(self.chunk_idx) + ".npz"]
+            save_list_name = "patent_classification_matrix_node_keys" + str(self.chunk_idx) + ".pkl"
+        else:
+            matrix_save_names = ["patent_detailed_classification_matrix.npz", "patent_classification_matrix.npz"]
+            save_list_name = "patent_classification_matrix_node_keys.pkl"
         for i in range(len(matrix_save_names)):
+            print("Saving node keys")
+            with open(save_list_name, "wb") as wfile:
+                pickle.dump(save_list, wfile, protocol=pickle.HIGHEST_PROTOCOL)
             print("Transforming matrix")
             save_mtx = matrix_handles[i].tocsr()
             print("Matrix transformed. Saving...")
             scipy.sparse.save_npz(matrix_save_names[i], save_mtx)
             print("Matrix saved.")
+    
+    def reload(self):
+        """Method to reload the initial data frame, matrixes and node lists.
+            No Arguments
+            Returns None"""
+        """Read data frame"""
+        self.pddf = pd.read_pickle("patent_greenness_based_on_CPC.pkl")
+        
+        """Read classification matrices"""
+        matrix_handles = [None, None]
+        matrix_save_names = ["patent_detailed_classification_matrix.npz", "patent_classification_matrix.npz"]
+        print("Reloading node keys")
+        with open("patent_classification_matrix_node_keys.pkl", "rb") as rfile:
+            self.patlist, self.classlist, self.classlist_coarse = pickle.load(rfile)
+        for i in range(len(matrix_save_names)):
+            print("Reloading matrix...")
+            reloaded_matrix = scipy.sparse.load_npz(matrix_save_names[i])
+            print("Transforming matrix")
+            matrix_handles[i] = reloaded_matrix.todok()
+        self.classificationmatrix, self.classificationmatrix_coarse = matrix_handles
+            
+            
         
     def prepare_lists_and_matrices(self, filelist):
         """Methods to identify the complete set of patent IDs and classification codes in order
@@ -288,5 +363,26 @@ def line_generator_from_file(filename):
 """ main entry point """
 
 if __name__ == "__main__":
-    GR = GreennessRecord()
-    GR.run_and_save()
+    if not len(sys.argv) > 1:
+        GR = GreennessRecord()
+        GR.save()
+        GR.reload()
+        print("""Setup is done. Feel free to interrupt (CTRL+C) and run the script in parallel for 10 chunks, doing, in different shells:\n
+                 python3 parse_CPC.py 0\n
+                 python3 parse_CPC.py 1\n
+                 python3 parse_CPC.py 2\n
+                 python3 parse_CPC.py 3\n
+                 python3 parse_CPC.py 4\n
+                 python3 parse_CPC.py 5\n
+                 python3 parse_CPC.py 6\n
+                 python3 parse_CPC.py 7\n
+                 python3 parse_CPC.py 8\n
+                 python3 parse_CPC.py 9""")
+        print("If you do not interrupt, the script will continue and parse all files. This will take a very long time.")
+        GR.run()
+        GR.save()
+    else:
+        chunk_idx = int(sys.argv[1])
+        GR = GreennessRecord(chunk_idx)
+        GR.run()
+        GR.save()
