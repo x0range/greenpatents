@@ -94,8 +94,8 @@ class CitationSpace():
             self.DGA[origin_idx, destination_idx] = 1
         if self.buildCitationCurve and ((not self.voluntaryOnly) or (cited_by == "applicant")):
             try:
-                if date[-1] == "0":
-                    date = date[:-1] + "1"
+                if date[-2:] == "00":
+                    date = date[:-2] + "01"
                 date = pd.to_datetime(date)
                 self.received_citation_count[destination] += 1
                 self.received_citation_list[destination].append(date)
