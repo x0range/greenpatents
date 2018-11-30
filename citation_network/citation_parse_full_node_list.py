@@ -48,6 +48,8 @@ class ReducedCitationSpace():
         elementi = line.decode("UTF-8").split("\t")
         assert len(elementi) == 9
         origin, destination, date, cited_by, country = elementi[1], elementi[2], elementi[3], elementi[7], elementi[6]
+        origin = origin.strip()
+        destination = destination.strip()
         if country != "US":
             print("weird country detected")
             pdb.set_trace()

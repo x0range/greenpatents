@@ -83,7 +83,9 @@ class CitationSpace():
                 None."""
         elementi = line.decode("UTF-8").split("\t")
         assert len(elementi) == 9
-        origin, destination, date, cited_by = elementi[1], elementi[2], elementi[3], elementi[7]
+        destination, origin, date, cited_by = elementi[1], elementi[2], elementi[3], elementi[7]
+        origin = origin.strip()
+        destination = destination.strip()
         cited_by = cited_by.replace("cited by ", "")
         if self.buildNetworks and ((not self.voluntaryOnly) or (cited_by == "applicant")):
             origin_idx, destination_idx = self.DGnodes.get(origin), self.DGnodes.get(destination)
@@ -93,11 +95,11 @@ class CitationSpace():
                 destination_idx = self.record_node(destination)
             self.DGA[origin_idx, destination_idx] = 1
         if self.buildCitationCurve and ((not self.voluntaryOnly) or (cited_by == "applicant")):
+            self.received_citation_count[destination] += 1
             try:
                 if date[-2:] == "00":
                     date = date[:-2] + "01"
                 date = pd.to_datetime(date)
-                self.received_citation_count[destination] += 1
                 self.received_citation_list[destination].append(date)
             except:
                 print("\nIrregular date encountered " + str(date))
