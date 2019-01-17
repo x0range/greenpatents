@@ -60,9 +60,12 @@ class CitationSpace():
             self.pageranks = {}
         
         if self.buildCitationCurve:
-            self.citation_curves = {}           # should eventually hold the number of citations up to day x vs. age of patent. For this we would still have to parse the application date (and the mapping from patent to application). 
+            self.datedf = pd.read_pickle("patents_dates_years.pkl")
+            self.citation_curves = {patentID: [] for patentID in self.DGnodes}           # should eventually hold the number of citations up to day x vs. age of patent. For this we would still have to parse the application date (and the mapping from patent to application). 
             self.received_citation_list = {patentID: [] for patentID in self.DGnodes}
             self.received_citation_count = {patentID: 0 for patentID in self.DGnodes}
+            self.cfound = 0
+            self.cnotfound = 0
 
     def record_node(self, label):
         """Method to record additional nodes. This should be done by the citation_parse_full_node_list.py script,
@@ -83,7 +86,7 @@ class CitationSpace():
                 None."""
         elementi = line.decode("UTF-8").split("\t")
         assert len(elementi) == 9
-        destination, origin, date, cited_by = elementi[1], elementi[2], elementi[3], elementi[7]
+        origin, destination, date, cited_by = elementi[1], elementi[2], elementi[3], elementi[7]
         origin = origin.strip()
         destination = destination.strip()
         cited_by = cited_by.replace("cited by ", "")
@@ -97,13 +100,25 @@ class CitationSpace():
         if self.buildCitationCurve and ((not self.voluntaryOnly) or (cited_by == "applicant")):
             self.received_citation_count[destination] += 1
             try:
-                if date[-2:] == "00":
-                    date = date[:-2] + "01"
-                date = pd.to_datetime(date)
-                self.received_citation_list[destination].append(date)
+                #if date[-2:] == "00":
+                #    date = date[:-2] + "01"
+                #date = pd.to_datetime(date)
+                date_origin = self.datedf["granted date"].get(origin)             # date of citing patent
+                self.received_citation_list[destination].append(date_origin)
+                date_destination = self.datedf["granted date"].get(destination)   # date of cited patent
+                if (date_origin is None) or (date_destination is None):
+                    #print("None date encountered in patent citation {0} -> {1} at {2}".format(origin, destination, str(date)))
+                    self.cnotfound += 1
+                    #pdb.set_trace()
+                else:                                                           # do not record in curve if citation date could not be found
+                    age_at_citation = date_origin - date_destination
+                    self.citation_curves[destination].append(age_at_citation)       
+                    self.cfound += 1
+                print("Parsed {1:11d}; found {1:11d}, not found {2:11d}".format(self.cfound + self.cnotfound, self.cfound, self.cnotfound), end="\r")
             except:
-                print("\nIrregular date encountered " + str(date))
-                self.received_citation_list[destination].append(pd.to_datetime(np.nan))
+                #print("\nIrregular date encountered " + str(date))
+                print("\nIrregularity while trying to determine citation date {0} -> {1} at {2}".format(origin, destination, str(date)))
+                self.received_citation_list[destination].append(pd.to_datetime(np.nan)) # record date as np.nan if it could not be found
                 #pdb.set_trace()
             
     def populate(self, zipsourcefile = "uspatentcitation.tsv.zip", sourcefile="data/20180528/bulk-downloads/uspatentcitation.tsv"):
@@ -119,9 +134,9 @@ class CitationSpace():
                 for i, line in enumerate(rfile):
                     if i>0:
                         self.parse_citation_file_line(line)
-                    if (i)%10000 == 0:
-                        """Print progress."""
-                        print("\rParsing line {}".format(i), end="")
+                    #if (i)%10000 == 0:
+                    #    """Print progress."""
+                    #    print("\rParsing line {}".format(i), end="")
                     if (i)%100000 == 0:
                         """Print memory usage statistics."""
                         process = psutil.Process(os.getpid())
@@ -136,7 +151,16 @@ class CitationSpace():
                             #self.compute_network_pagerank()
                             raise SystemExit
                             pdb.set_trace()
-        
+    
+    def sort_citation_curves(self):
+        cclen = len(self.citation_curves)
+        i = 0
+        for cc in self.citation_curves:
+            i += 1
+            print("Sorting citation curves: {0:11d}/{1:11d}".format(i, cclen))
+            self.citation_curves[cc].sort()
+
+    
     def save(self):
         """Method to save all computed data structures: pageranks, citation matrix, citation statistics.
             No Arguments
@@ -180,6 +204,7 @@ class CitationSpace():
                 citationListFileName = "received_citation_list.pkl"
                 citationCountFileName = "received_citation_count.pkl"
             if self.citation_curves:
+                self.sort_citation_curves()
                 with open(citationCurveFileName, "wb") as ofile:
                     pickle.dump(self.citation_curves, ofile, protocol=pickle.HIGHEST_PROTOCOL)
             if len(self.received_citation_list) > 0:
