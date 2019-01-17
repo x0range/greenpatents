@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+import scipy.sparse as sp
 
 def rm_leading_zeros(keylist):
     oldlen= -1
@@ -22,39 +23,64 @@ class CitationCurveSet():
         self.voluntaryOnly = voluntaryOnly
         if self.voluntaryOnly:
             self.citationCurveFileName = "citation_curves_voluntary.pkl"
-            self.citationListFileName = "received_citation_list_voluntary.pkl"
-            self.citationCountFileName = "received_citation_count_voluntary.pkl"
-            self.citationListFileNameCleaned = "received_citation_list_voluntary_cleaned.pkl" 
+            #self.citationListFileName = "received_citation_list_voluntary.pkl"
+            #self.citationCountFileName = "received_citation_count_voluntary.pkl"
+            #self.citationListFileNameCleaned = "received_citation_list_voluntary_cleaned.pkl" 
         else:
             self.citationCurveFileName = "citation_curves.pkl"
-            self.citationListFileName = "received_citation_list.pkl"
-            self.citationCountFileName = "received_citation_count.pkl"
-            self.citationListFileNameCleaned = "received_citation_list_cleaned.pkl" 
+            #self.citationListFileName = "received_citation_list.pkl"
+            #self.citationCountFileName = "received_citation_count.pkl"
+            #self.citationListFileNameCleaned = "received_citation_list_cleaned.pkl" 
         """loading datasets"""
         print("Loading citation lists...")
-        if os.path.exists(self.citationListFileNameCleaned):
-            to_be_cleaned = False
-            with open(self.citationListFileNameCleaned, "rb") as rfile:
-                self.received_citation_list = pickle.load(rfile)
-        else:
-            to_be_cleaned = True
-            with open(self.citationListFileName, "rb") as rfile:
-                self.received_citation_list = pickle.load(rfile)
-        
+        assert os.path.exists(self.citationCurveFileName)
+        with open(self.citationCurveFileName, "rb") as rfile:
+            self.citation_curves = pickle.load(rfile)
+
         print("Loading dates lists...")
         self.pddf = pd.read_pickle("patents_dates_years.pkl")      # should have: "applied date", "granted date", "applied year", "granted year"
         
-        """parsing citation curves"""
         self.separation = {}
-        self.enddates = {}
-        self.citation_curves = {}
+        self.totallengths = {}
         
-        if to_be_cleaned:
-            print("Done. Now removing unparsable elements: ")
-            self.remove_unparsable()
-        print("Done. Now parsing: ")
-        self.parse_curves()
-        print("Done.")
+        # populate totallengths
+        last_granted_date = max(pddf["granted date"])
+        self.totallengths = [td.days for td in (last_granted_date - pddf["granted date"][510:521])]
+        self.max_totallength = lax(self.totallengths)
+        
+        # make citation curves into sparse matrix
+        self.citation_curve_matrix = None
+        self.populate_citation_curve_matrix()
+        
+        # get keys
+        self.citation_curves_keys = list(citation_curves.keys())
+        ## selections with
+        #sep_true_false = np.in1d(self.citation_curves_keys, keys_to_be_selected)   # gives bool list
+        #selection_members = np.where(sep_true_false)[0]
+        #selection_nonmembers = np.where(sep_true_false == False)[0]
+        
+        # free memory
+        del self.citation_curves
+        
+        #"""parsing citation curves"""
+        
+        # self.citation_curves = {}
+        
+        # if to_be_cleaned:
+        #    print("Done. Now removing unparsable elements: ")
+        #    self.remove_unparsable()
+        # print("Done. Now parsing: ")
+        # self.parse_curves()
+        # print("Done.")
+    
+    def populate_citation_curve_matrix(self):
+        self.citation_curve_matrix = sp.dok_matrix((len(self.citation_curve_matrix), self.max_totallength), dtype=np.int8)
+        for idx, times in enumerate(self.citation_curves.values()):
+            inttimes =  [td.days for td in times]
+            self.citation_curve_matrix[idx, inttimes] = 1
+
+        self.citation_curve_matrix = self.citation_curve_matrix.tocsr()
+        
     
     def remove_unparsable(self):
         volunt_yes_no = {True: "_voluntary", False: ""}
