@@ -1,7 +1,7 @@
 
 import pickle
 #import bisect
-#import pdb
+import pdb
 import numpy as np
 import pandas as pd
 import os
@@ -52,26 +52,26 @@ class CitationCurveSet():
                 self.citation_curves = pickle.load(rfile)
 
             print("Loading dates lists...")
-            self.pddf = pd.read_pickle("patents_dates_years.pkl")      # should have: "applied date", "granted date", "applied year", "granted year"
+            pddf = pd.read_pickle("patents_dates_years.pkl")      # should have: "applied date", "granted date", "applied year", "granted year"
             
             print("Removing empty entries from citation curves...")
-            for key in self.citation_curves.keys():
+            for key in np.asarray(list(self.citation_curves.keys())):
                 if len(self.citation_curves[key]) == 0:
                     del self.citation_curves[key]
             
             print("Obtaining keys...")
             self.citation_curves_keys = np.asarray(list(self.citation_curves.keys()))
             print("Cleaning and sorting dates list...")
-            self.pddf = self.pddf.loc[self.citation_curves_keys]
-            self.pddf = self.pddf.loc[self.pddf["granted date"].notnull()]
-            self.pddf = self.pddf.sort_values(by=["granted date"], ascending=False)
+            pddf = pddf.loc[self.citation_curves_keys]
+            pddf = pddf.loc[pddf["granted date"].notnull()]
+            pddf = pddf.sort_values(by=["granted date"], ascending=False)
             print("Obtaining cleaned keys...")
-            self.citation_curves_keys = np.asarray(self.pddf.index)
+            self.citation_curves_keys = np.asarray(pddf.index)
             
             print("Populating citation curve length records...")
             last_granted_date = max(pddf["granted date"])
             self.tlen = np.asarray([td.days for td in (last_granted_date - pddf["granted date"])])
-            self.maxlen = lax(self.tlen)
+            self.maxlen = max(self.tlen)
             
             print("Converting citation curves into sparse matrix...")
             self.citation_curve_matrix = None
@@ -91,11 +91,15 @@ class CitationCurveSet():
         print("Sanity check succeeded. All set up.")
     
     def populate_citation_curve_matrix(self):
-        self.citation_curve_matrix = sp.dok_matrix((len(self.citation_curve_matrix), self.maxlen), dtype=np.int8)
+        self.citation_curve_matrix = sp.dok_matrix((len(self.citation_curves_keys), self.maxlen), dtype=np.int8)
         for idx, key in enumerate(self.citation_curves_keys):
             times = self.citation_curves[key]
             inttimes =  [td.days for td in times]
-            self.citation_curve_matrix[idx, inttimes] = 1
+            try:
+                self.citation_curve_matrix[idx, inttimes] = 1
+            except:
+                print("Failed at: self.citation_curve_matrix[idx, inttimes] = 1")
+                pdb.set_trace()
 
         self.citation_curve_matrix = self.citation_curve_matrix.tocsr()
         
