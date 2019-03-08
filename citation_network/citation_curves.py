@@ -18,14 +18,13 @@ import matplotlib.pyplot as plt
 """ auxiliary functions"""
 
 def rm_leading_zeros(keylist):
-    """ Function to remove leading zeros from list of strings (such as patent IDs)
+    """ Function to remove leading zeros and spaces from list of strings (such as patent IDs)
      Arguments: keylist: list of strings
      Returns: list of strings"""
-    oldlen= -1
-    newlen = len(keylist)
-    while oldlen != newlen:
-        oldlen = newlen
-        keylist = [di.strip()[1:] if di.strip()[0]=="0" else di.strip() for di in keylist]
+    keylist = [di.strip() for di in keylist]
+    maxlen = np.max([len(di) for di in keylist])
+    for i in range(maxlen - 1):
+        keylist = [di[1:] if di[0]=="0" else di for di in keylist]
         newlen = len(keylist)
     return keylist
 
@@ -71,20 +70,28 @@ class CitationCurveSet():
 
         """save parameters"""
         self.voluntaryOnly = voluntaryOnly
+        self.patentYearDataframeFile = "patents_dates_years.pkl"
         if self.voluntaryOnly:
             self.citationCurveFileName = "citation_curves_voluntary.pkl"
             self.citationCurveTLenFileName = "citation_curves_total_lengths_voluntary.pkl"
             self.citationCurveMatrixFileName = "citation_curves_voluntary.npz"
             self.citationCurveMatrixKeysFileName = "citation_curves_voluntary_keys.pkl"
-            self.separationBoolFilePrefix = "citation_curves_voluntary_separation_bool"
+            self.separationGreenFile = "citation_curves_voluntary_separation_green.pkl"
+            self.separationClassFile = "citation_curves_voluntary_separation_class.pkl"
+            self.separationYearFile = "citation_curves_voluntary_separation_year.pkl"
         else:
             self.citationCurveFileName = "citation_curves.pkl"
             self.citationCurveTLenFileName = "citation_curves_total_lengths.pkl"
             self.citationCurveMatrixFileName = "citation_curves.npz"
             self.citationCurveMatrixKeysFileName = "citation_curves_keys.pkl"
-            self.separationBoolFilePrefix = "citation_curves_separation_bool"
+            self.separationGreenFile = "citation_curves_separation_green.pkl"
+            self.separationClassFile = "citation_curves_separation_class.pkl"
+            self.separationYearFile = "citation_curves_separation_year.pkl"
                             
-        self.separation = {}
+        self.green_separation = None
+        self.year_separation = None
+        self.class_separation = None
+
         
         if os.path.exists(self.citationCurveMatrixFileName):
             print("Data sets found. Loading... ")
@@ -104,7 +111,7 @@ class CitationCurveSet():
                 self.citation_curves = pickle.load(rfile)
 
             print("Loading dates lists...")
-            pddf = pd.read_pickle("patents_dates_years.pkl")      # should have: "applied date", "granted date", "applied year", "granted year"
+            pddf = pd.read_pickle(self.patentYearDataframeFile)      # should have: "applied date", "granted date", "applied year", "granted year"
             
             print("Removing empty entries from citation curves...")
             for key in np.asarray(list(self.citation_curves.keys())):
@@ -169,39 +176,158 @@ class CitationCurveSet():
 
         self.citation_curve_matrix = self.citation_curve_matrix.tocsr()
         
+    def populate_class_separation(self, cpc_matrix_file="patent_classification_matrix_all.npz", cpc_keys_file="patent_classification_matrix_node_keys7.pkl"):
+        """Method for populating separation of patents (citation curves) by patent CPC classes.
+           The method populates the variable self.class_separation as a pandas dataframe with bool indicators of whether
+                the patent belongs to a each of the CPC sections. This can easily be extended to classes by using
+                    categs = np.unique([k[:2] for k in cpc_keys[2]])
+                instead of
+                    categs = np.unique([k[0] for k in cpc_keys[2]])
+            Arguments:
+                cpc_matrix_file: str    -   filename of patent classification matrix
+                cpc_keys_file:  str     -   filename of pickle file containing keys for patent classification matrix
+            Returns None."""
+        if os.path.exists(self.separationClassFile):
+            """Do not recreate if the separation exists"""
+            with open(self.separationClassFile, "rb") as rfile:
+                self.class_separation = pd.read_pickle(rfile)
+        else:
+            """Load matrix"""
+            cpc = sp.load_npz(cpc_matrix_file)
+            with open(cpc_keys_file, "rb") as rfile:
+                cpc_keys = pickle.load(rfile)
+            
+            """Define categories"""
+            categs = np.unique([k[0] for k in cpc_keys[2]])     # sections
+            #categs = np.unique([k[:2] for k in cpc_keys[2]])    # classes
+            #categs = np.unique(cpc_keys[2])                     # subclasses
+            
+            """Create and populate data frame"""
+            cpc_df = pd.DataFrame(index=rm_leading_zeros(cpc_keys[0]))
+            
+            for cat in categs:
+                columns = np.where(np.array([k[0] for k in cpc_keys[2]])==cat)[0]
+                sum_columns = cpc[:,columns].sum(axis=1)
+                cat_presence = np.array(sum_columns) > 0
+                cpc_df[cat] = cat_presence
+            
+            """Select correct subset in correct order"""
+            self.class_separation = cpc_df.loc[self.citation_curves_keys]
+            
+            """Fill NA entries as False (not belonging to this category)"""
+            for cat in categs:
+                self.class_separation[cat].fillna(False,inplace=True)
+            
+            """Save"""
+            self.class_separation.to_pickle(self.separationClassFile)
+        
+    def populate_green_separation(self, keyword_greenness_file="detected_green_patents.pkl", cpc_greenness_file="patent_greenness_based_on_CPC_all.pkl"):
+        """Method for populating separation of patents (citation curves) by patent greenness indicators.
+           The method populates the variable self.green_separation as a pandas dataframe with bool indicators of whether
+                the patent belongs to a each of the green patent selections: the GIs by envtech and IPC, as well as 
+                keyword-based selection.
+                Keyword based currently only has shapira et al. Could and should be extended, using a list of files instead.
+            Arguments:
+                keyword_greenness_file: str     -   filename of keyword based (based on Shapira et al.) identification
+                cpc_greenness_file:  str        -   filename of CPC class based identifications
+            Returns None."""
+        if os.path.exists(self.separationGreenFile):
+            """Do not recreate if the separation exists"""
+            with open(self.separationGreenFile, "rb") as rfile:
+                self.green_separation = pd.read_pickle(rfile)
+        else:
+            """CPC class based"""
+            with open(cpc_greenness_file, "rb") as rfile:
+                """Load data frame"""
+                CPC_df = pd.read_pickle(rfile)
+                CPC_df.index = rm_leading_zeros(CPC_df.index)
+            """Select correct IDs in correct order"""
+            self.green_separation = CPC_df.loc[self.citation_curves_keys]
+            
+            """Keyword based"""
+            with open(keyword_greenness_file, "rb") as rfile:
+                """Load data frame"""
+                keyword_shapira = pd.read_pickle(rfile)
+                """Remove pattern match information, only keep index (all rows were positive identifications)"""
+                keyword_shapira["keyword_shapira"] = True
+                keyword_shapira = keyword_shapira[["keyword_shapira"]]
+            """Select correct IDs in correct order"""
+            keyword_shapira = keyword_shapira.loc[self.citation_curves_keys]
+            """Fill NA as False. (All present IDs are True.)"""
+            keyword_shapira["keyword_shapira"].fillna(False,inplace=True)    #TODO: colname
+            
+            """Attach keyword basedto dataframe"""
+            self.green_separation["keyword_shapira"] = keyword_shapira["keyword_shapira"]
+            
+            """Save"""
+            self.green_separation.to_pickle(self.separationGreenFile)
     
-    def draw_citation_curve(self, criterion, memberIDs, quantile_low=0.25, quantile_high=0.75):
+    def populate_year_separation(self):
+        """Method for populating separation of patents (citation curves) by granted years.
+           The method populates the variable self.year_separation as a pandas dataframe with bool indicators of the
+                year the patent was granted.
+            Arguments: None.
+            Returns None."""
+        if os.path.exists(self.separationYearFile):
+            """Do not recreate if the separation exists"""
+            with open(self.separationYearFile, "rb") as rfile:
+                self.year_separation = pd.read_pickle(rfile)
+        else:
+            """Load patent year dataframe"""
+            pddf = pd.read_pickle(self.patentYearDataframeFile)      # should have: "applied date", "granted date", "applied year", "granted year"
+            
+            """Select categories"""
+            categs = np.unique(np.asarray(pddf["granted year"]))
+            
+            """Apply bool colums"""
+            for cat in categs:
+                pddf[str(cat)] = pddf["granted year"]==cat
+            
+            """Reduce dataframe to the bool columns for the years only"""
+            pddf = pddf[[str(cat) for cat in categs]]
+
+            """Select correct IDs in correct order"""
+            self.year_separation = pddf.loc[self.citation_curves_keys]
+            
+            """Save"""
+            self.year_separation.to_pickle(self.separationYearFile)
+
+    def draw_citation_curve(self, criterion, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
         """Function for drawing representative member and non-member citation curves using a particular criterion.
             Arguments:
                 criterion: string           - criterion name
-                memberIDs: list of strings  - list of member patent IDs
+                class_sep: None or str      - CPC class category to be selected (if None, select all)
+                year_sep: None or str       - Granted year category to be selected (if None, select all)
                 quantile_low: float         - lower bound of inter quantile range
-                quantile_high: float         - upper bound of inter quantile range
+                quantile_high: float        - upper bound of inter quantile range
             Returns: None"""
-        print("Computing graphs for " + criterion)
+        print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
         xs = np.arange(0, self.maxlen, 150)
-        
-        """ separate matrix"""
         mseries = {}
         tlens = {}
-        separationBoolFile = self.separationBoolFilePrefix + "_" + criterion + ".pkl"
-        if os.path.exists(separationBoolFile):
-            print("   ...separation file found")
-            print("   ...loading separation matrix")
-            with open(separationBoolFile, "rb") as rfile:
-               (selection_members, selection_nonmembers) = pickle.load(rfile)
-            
-        else:
-            print("   ...no separation file found")
-            print("   ...computing separation")
-            selection_members, selection_nonmembers = split_list(self.citation_curves_keys, memberIDs)
-            with open(separationBoolFile, "wb") as wfile:
-                pickle.dump((selection_members, selection_nonmembers), wfile, protocol=pickle.HIGHEST_PROTOCOL)
-            
-        #sep_true_false = np.in1d(self.citation_curves_keys, memberIDs)   # gives bool list
-        #selection_members = np.where(sep_true_false)[0]
-        #selection_nonmembers = np.where(sep_true_false == False)[0]
+        
+        """ separate matrix"""
+        """Separation by green tech membership"""
+        selection_members = self.green_separation[separ]==True
+        selection_nonmembers = self.green_separation[separ]==False
+        criterion_name = criterion
+        
+        """Add separation by other categories logically"""
+        if class_sep is not None:
+            selection_members = selection_members & self.class_separation[class_sep]
+            selection_nonmembers = selection_nonmembers & self.class_separation[class_sep]
+            criterion_name += "_class_" + class_sep + "_"
+        if year_sep is not None:
+            pass    #TODO
+            #selection_members = selection_members & self.year_separation[year_sep]
+            #selection_nonmembers = selection_nonmembers & self.year_separation[year_sep]
+            #criterion_name += "_" + year_sep + "_"
+
+        """Typecast from pandas to numpy bool type (otherwise the sparse matrix separation below fails)"""
+        selection_members = np.asarray(selection_members)
+        selection_nonmembers = np.asarray(selection_nonmembers)
         print("   ...separating matrix")
+        #pdb.set_trace()
         mseries["members"] = self.citation_curve_matrix[selection_members]
         mseries["nonmembers"] = self.citation_curve_matrix[selection_nonmembers]
         tlens["members"] = self.tlen[selection_members]
@@ -226,9 +352,9 @@ class CitationCurveSet():
         color1, color2 = 'C2', 'C1'
         label1, label2 = 'green', 'non-green'
         if self.voluntaryOnly:
-            outputfilename = "comp_citations_by_age_" + criterion + "voluntaryOnly.pdf"
+            outputfilename = "comp_citations_by_age_" + criterion_name + "voluntaryOnly.pdf"
         else:
-            outputfilename = "comp_citations_by_age_" + criterion + ".pdf"
+            outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
     
         fig = plt.figure()
         ax0 = fig.add_subplot(111)
@@ -292,19 +418,18 @@ if __name__ == "__main__":
         """prepare citation curves and save"""
         CCS = CitationCurveSet(vol)    
         
-        """load greenness patterns"""
-        selections = {}
-        with open("detected_green_patents.pkl", "rb") as rfile:
-            keyword_shapira = pd.read_pickle(rfile)
-            selections["keyword_shapira"] = rm_leading_zeros(list(keyword_shapira.index))
-        with open("patent_greenness_based_on_CPC_all.pkl", "rb") as rfile:
-            CPC_df = pd.read_pickle(rfile)
-            selections["GI_envtech"] = rm_leading_zeros(list(CPC_df[CPC_df['envtech']==True].index))
-            selections["GI_IPC"] = rm_leading_zeros(list(CPC_df[CPC_df['IPCGI']==True].index))
+        """load greenness patterns, CPC class patterns, and granted year patterns"""
+        CCS.populate_class_separation()
+        CCS.populate_year_separation()
+        CCS.populate_green_separation()
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
-        for separ in ["GI_envtech", "GI_IPC", "keyword_shapira"]:
-            CCS.draw_citation_curve(separ, selections[separ])
+        for separ in CCS.green_separation.columns:                      #TODO: getter method instead of accessing class attribute?
+            CCS.draw_citation_curve(separ)
+            for class_separ in CCS.class_separation.columns:            #TODO: getter method instead of accessing class attribute?
+                CCS.draw_citation_curve(separ, class_sep=class_separ)
+            for year_separ in CCS.year_separation.columns:              #TODO: getter method instead of accessing class attribute?
+                CCS.draw_citation_curve(separ, year_sep=year_separ)
 
     """Exit"""
     exit(0)
