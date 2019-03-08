@@ -393,6 +393,152 @@ class CitationCurveSet():
     #    ends = ends.sort()
     #    return np.asarray([bisect.bisect_right(ends, x) for x in xs])
 
+    def draw_shares(self):
+        """TODO"""
+        green_by_year = {}
+        nongreen_by_year = {}
+        green_by_class = {}
+        nongreen_by_year = {}
+        green_by_year_relative = {}
+        green_by_year_relative2 = {}
+        nongreen_by_year_relative = {}
+        green_by_class_relative = {}
+        green_by_class_relative2 = {}
+        nongreen_by_year_relative = {}
+        dfs = {}
+        cats_class = CCS.class_separation.columns
+        cats_year = CCS.year_separation.columns
+        for separ in self.green_separation.columns:
+            green_by_year[separ] = []
+            nongreen_by_year[separ] = []
+            green_by_class[separ] = []
+            nongreen_by_year[separ] = []
+            green_by_year_relative[separ] = []
+            green_by_year_relative2[separ] = []
+            nongreen_by_year_relative[separ] = []
+            green_by_class_relative[separ] = []
+            green_by_class_relative2[separ] = []
+            nongreen_by_year_relative[separ] = []
+            dfs[separ] = pd.DataFrame(index=cats_class)
+            for class_sep in cats_class:
+                mnumber = np.sum((self.green_separation[separ]==True) & self.class_separation[class_sep])
+                nnumber = np.sum((self.green_separation[separ]==False) & self.class_separation[class_sep])
+                tnumber = np.sum(self.class_separation[class_sep])
+                green_by_class[separ].append(mnumber)
+                green_by_class_relative[separ].append(mnumber * 1. / (tnumber))
+                green_by_class_relative2[separ].append(mnumber * 1. / (mnumber + nnumber))
+                nongreen_by_class[separ].append(nnumber)
+                nongreen_by_class_relative[separ].append(nnumber * 1. / (tnumber))
+            for year_sep in cats_year:
+                mnumber = np.sum((self.green_separation[separ]==True) & self.year_separation[year_sep])
+                nnumber = np.sum((self.green_separation[separ]==False) & self.year_separation[year_sep])
+                tnumber = np.sum(self.year_separation[year_sep])
+                green_by_year[separ].append(mnumber)
+                green_by_year_relative[separ].append(mnumber * 1. / (tnumber))
+                green_by_year_relative2[separ].append(mnumber * 1. / (mnumber + nnumber))
+                nongreen_by_year[separ].append(nnumber)                
+                nongreen_by_year_relative[separ].append(nnumber * 1. / (tnumber))
+                pdseries = []
+                for class_sep in CCS.class_separation.columns:
+                    mnumber = np.sum((self.green_separation[separ]==True) & self.year_separation[class_sep] & self.year_separation[class_sep])
+                    nnumber = np.sum((self.green_separation[separ]==False) & self.year_separation[class_sep])
+                    pdseries.append(mnumber * 1. / (mnumber + nnumber))     # this time relative to sum of green+non-green, disregarding any unclassified
+                dfs[separ][year_sep] = pdseries
+            
+            """bar plot class"""
+            plotfilename = "Shares_by_class_" + separ + ".pdf"
+            plot_title = "Shares by class " + separ
+            gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
+            
+            ax0 = plt.subplot(gs[0])
+            xs = np.arange(len(cats_class))    # the x locations for the groups
+            width = 0.35       # the width of the bars: can also be len(x) sequence
+            ax0.bar(xs, green_by_class[separ], width)
+            ax0.bar(xs, nongreen_by_class[separ], width, bottom=green_by_class[separ])            
+            ax0.set_ylabel('No. of patents')
+            ax0.set_xticks(xs, ["" for cat in cats_class])
+            
+            ax1 = plt.subplot(gs[1])
+            ax1.bar(xs, green_by_class_relative[separ], width)
+            ax1.bar(xs, nongreen_by_class_relative[separ], width, bottom=green_by_class_relative[separ])
+            ax1.set_ylabel('Share of patents')
+            ax1.set_xticks(xs, cats_class)
+            plt.title(plot_title)
+            plt.tight_layout()
+            plt.savefig(plotfilename)
+
+            """bar plot year"""
+            plotfilename = "Shares_by_year_" + separ + ".pdf"
+            plot_title = "Shares by year " + separ
+            gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
+            
+            ax0 = plt.subplot(gs[0])
+            xs = np.arange(len(cats_year))    # the x locations for the groups
+            width = 0.35       # the width of the bars: can also be len(x) sequence
+            ax0.bar(xs, green_by_year[separ], width)
+            ax0.bar(xs, nongreen_by_year[separ], width, bottom=green_by_year[separ])            
+            ax0.set_ylabel('No. of patents')
+            ax0.set_xticks(xs, ["" for cat in cats_year])
+            
+            ax1 = plt.subplot(gs[1])
+            ax1.bar(xs, green_by_year_relative[separ], width)
+            ax1.bar(xs, nongreen_by_year_relative[separ], width, bottom=green_by_year_relative[separ])
+            ax1.set_ylabel('Share of patents')
+            ax1.set_xticks(xs, cats_year)
+            plt.title(plot_title)
+            plt.tight_layout()
+            plt.savefig(plotfilename)
+            
+            """heatmap plot"""
+            plotfilename = "Shares_by_both_" + separ + ".pdf"
+            plot_title = "Shares by year and class " + separ
+
+            plt.pcolor(dfs[separ])
+            plt.yticks(np.arange(0.5, len(dfs[separ].index), 1), dfs[separ].index)
+            plt.xticks(np.arange(0.5, len(dfs[separ].columns), 1), dfs[separ].columns)
+            plt.colorbar()
+            plt.title(plot_title)
+            plt.tight_layout()
+            plt.savefig(plotfilename)
+            
+        """line plot class"""
+        plotfilename = "Shares_by_year_all.pdf"
+        plot_title = "Shares by year"
+        xs = np.arange(len(cats_class))
+        fig, ax = plt.subplots(nrows=3)
+        for separ in self.green_separation.columns:
+            ax[0].plot(xs, green_by_class[separ], label=separ)
+            ax[1].plot(xs, nongreen_by_class[separ], label=separ)
+            ax[2].plot(xs, green_by_class_relative2[separ], label=separ)
+        ax[0].set_ylabel('Green patents')
+        ax[0].set_xticks(xs, ["" for cat in cats_class])
+        ax[1].set_ylabel('Non-green patents')
+        ax[1].set_xticks(xs, ["" for cat in cats_class])
+        ax[2].set_ylabel('Share green')
+        ax[2].set_xticks(xs, cats_class)
+        plt.title(plot_title)
+        plt.tight_layout()
+        plt.savefig(plotfilename)
+        
+        """line plot year"""
+        plotfilename = "Shares_by_year_all.pdf"
+        plot_title = "Shares by year"
+        xs = np.arange(len(cats_year))
+        fig, ax = plt.subplots(nrows=3)
+        for separ in self.green_separation.columns:
+            ax[0].plot(xs, green_by_year[separ], label=separ)
+            ax[1].plot(xs, nongreen_by_year[separ], label=separ)
+            ax[2].plot(xs, green_by_year_relative2[separ], label=separ)
+        ax[0].set_ylabel('Green patents')
+        ax[0].set_xticks(xs, ["" for cat in cats_year])
+        ax[1].set_ylabel('Non-green patents')
+        ax[1].set_xticks(xs, ["" for cat in cats_year])
+        ax[2].set_ylabel('Share green')
+        ax[2].set_xticks(xs, cats_year)
+        plt.title(plot_title)
+        plt.tight_layout()
+        plt.savefig(plotfilename)
+            
 
 if __name__ == "__main__":
     for vol in [False, True]:
@@ -405,8 +551,8 @@ if __name__ == "__main__":
         CCS.populate_year_separation()
         CCS.populate_green_separation()
         
-        #"""visualize sares"""
-        #CCS.draw_shares()
+        """visualize sares"""
+        CCS.draw_shares()
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
         for separ in reversed(CCS.green_separation.columns):                      #TODO: getter method instead of accessing class attribute?
