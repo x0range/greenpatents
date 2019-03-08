@@ -25,7 +25,7 @@ def rm_leading_zeros(keylist):
     newlen = len(keylist)
     while oldlen != newlen:
         oldlen = newlen
-        keylist = [di[1:] if di[0]=="0" else di for di in keylist]
+        keylist = [di.strip()[1:] if di.strip()[0]=="0" else di.strip() for di in keylist]
         newlen = len(keylist)
     return keylist
 
@@ -299,11 +299,11 @@ if __name__ == "__main__":
             selections["keyword_shapira"] = rm_leading_zeros(list(keyword_shapira.index))
         with open("patent_greenness_based_on_CPC_all.pkl", "rb") as rfile:
             CPC_df = pd.read_pickle(rfile)
-            selections["GI_envtech"] = list(CPC_df[CPC_df['envtech']==True].index)
-            selections["GI_IPC"] = list(CPC_df[CPC_df['IPCGI']==True].index)
+            selections["GI_envtech"] = rm_leading_zeros(list(CPC_df[CPC_df['envtech']==True].index))
+            selections["GI_IPC"] = rm_leading_zeros(list(CPC_df[CPC_df['IPCGI']==True].index))
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
-        for separ in ["keyword_shapira", "GI_envtech", "GI_IPC"]:
+        for separ in ["GI_envtech", "GI_IPC", "keyword_shapira"]:
             CCS.draw_citation_curve(separ, selections[separ])
 
     """Exit"""
