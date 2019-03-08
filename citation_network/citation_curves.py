@@ -405,8 +405,8 @@ if __name__ == "__main__":
         CCS.populate_year_separation()
         CCS.populate_green_separation()
         
-        """visualize sares"""
-        CCS.draw_shares()
+        #"""visualize sares"""
+        #CCS.draw_shares()
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
         for separ in reversed(CCS.green_separation.columns):                      #TODO: getter method instead of accessing class attribute?
