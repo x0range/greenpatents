@@ -28,33 +28,6 @@ def rm_leading_zeros(keylist):
         newlen = len(keylist)
     return keylist
 
-def split_list(in_list, members):
-    """ Function to create bool lists of members and non-members depending in the presence
-        of elements in a second list.
-       This may be used to divide a list of patent IDs into green and non-green ones
-        with the help of a list of green patent IDs.
-       The resulting bool lists can be used to split matrices etc. (as long as these 
-       follow the same order of elements)
-     Arguments:
-       in_list: list of strings: Input list
-       members: list of strings: List of member strings
-     Returns:
-       tuple of list of bools: member indicator list and non-member indicator list
-       These lists have the same length as (in_list)"""
-    mlist = []
-    nmlist = []
-    maxidx = len(in_list)
-    for idx, ile in enumerate(in_list):
-        print("Done {0:7d} / {1:7d}".format(idx, maxidx), end="\r")
-        if ile in members:
-            mlist.append(True)
-            nmlist.append(False)
-        else:
-            mlist.append(False)
-            nmlist.append(True)
-    mlist = np.asarray(mlist)
-    nmlist = np.asarray(nmlist)
-    return mlist, nmlist
 
 """ class definitions"""
 
