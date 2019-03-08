@@ -39,6 +39,7 @@ def join_all_dfs(filenames, outputfilepickle, outputfilefeather):
     """save combined dataframe"""
     pddf.sort_index(inplace=True)
     pddf.to_pickle(outputfilepickle)
+    pddf.to_pickle("green_patents_combined_df_pickleProtocol2.pkl", protocol=2)
     pddf.rename_axis("Patent ID",inplace=True)
     pddf.reset_index(inplace=True)
     pddf.to_feather(outputfilefeather)
