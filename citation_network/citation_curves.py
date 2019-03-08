@@ -10,6 +10,7 @@ import pandas as pd
 import os
 import matplotlib
 import scipy.sparse as sp
+from matplotlib import gridspec
 
 """ Set to non-GUI environment before importing pyplot"""
 matplotlib.use('Agg')
@@ -221,6 +222,7 @@ class CitationCurveSet():
             with open(keyword_greenness_file, "rb") as rfile:
                 """Load data frame"""
                 keyword_shapira = pd.read_pickle(rfile)
+                keyword_shapira.index = rm_leading_zeros(keyword_shapira.index)
                 """Remove pattern match information, only keep index (all rows were positive identifications)"""
                 keyword_shapira["keyword_shapira"] = True
                 keyword_shapira = keyword_shapira[["keyword_shapira"]]
@@ -248,6 +250,7 @@ class CitationCurveSet():
         else:
             """Load patent year dataframe"""
             pddf = pd.read_pickle(self.patentYearDataframeFile)      # should have: "applied date", "granted date", "applied year", "granted year"
+            #                                                        # TODO: Are the leading zeros already removed here?
             
             """Select categories"""
             categs = np.unique(np.asarray(pddf["granted year"]))
@@ -291,10 +294,9 @@ class CitationCurveSet():
             selection_nonmembers = selection_nonmembers & self.class_separation[class_sep]
             criterion_name += "_class_" + class_sep + "_"
         if year_sep is not None:
-            pass    #TODO
-            #selection_members = selection_members & self.year_separation[year_sep]
-            #selection_nonmembers = selection_nonmembers & self.year_separation[year_sep]
-            #criterion_name += "_" + year_sep + "_"
+            selection_members = selection_members & self.year_separation[year_sep]
+            selection_nonmembers = selection_nonmembers & self.year_separation[year_sep]
+            criterion_name += "_" + year_sep + "_"
 
         """Typecast from pandas to numpy bool type (otherwise the sparse matrix separation below fails)"""
         selection_members = np.asarray(selection_members)
@@ -321,33 +323,34 @@ class CitationCurveSet():
         print("Done.")
 
         # Plot and save
-        print("Drawing...")
-        color1, color2 = 'C2', 'C1'
-        label1, label2 = 'green', 'non-green'
-        if self.voluntaryOnly:
-            outputfilename = "comp_citations_by_age_" + criterion_name + "voluntaryOnly.pdf"
-        else:
-            outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
-    
-        fig = plt.figure()
-        ax0 = fig.add_subplot(111)
-        ax0.fill_between(xs, member_low, member_high, facecolor=color1, alpha=0.25)
-        ax0.fill_between(xs, nonmember_low, nonmember_high, facecolor=color2, alpha=0.25)
-        ax0.plot(xs, member_median, color=color1, label=label1)
-        ax0.plot(xs, nonmember_median, color=color2, label=label2)
-        ax0.plot(xs, member_mean, dashes=[3, 3], color=color1, label=label1)
-        ax0.plot(xs, nonmember_mean, dashes=[3, 3], color=color2, label=label2)
-        ax0.set_ylabel("# Citations")
-        ax0.set_xlabel("Patent age")
-        ax0.legend(loc='best')
-        plt.savefig(outputfilename)
-        #plt.show()
-        print("Done.")
+        if member_mean is not None and nonmember_mean is not None:
+            print("Drawing...")
+            color1, color2 = 'C2', 'C1'
+            label1, label2 = 'green', 'non-green'
+            if self.voluntaryOnly:
+                outputfilename = "comp_citations_by_age_" + criterion_name + "voluntaryOnly.pdf"
+            else:
+                outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
+        
+            fig = plt.figure()
+            ax0 = fig.add_subplot(111)
+            ax0.fill_between(xs, member_low, member_high, facecolor=color1, alpha=0.25)
+            ax0.fill_between(xs, nonmember_low, nonmember_high, facecolor=color2, alpha=0.25)
+            ax0.plot(xs, member_median, color=color1, label=label1)
+            ax0.plot(xs, nonmember_median, color=color2, label=label2)
+            ax0.plot(xs, member_mean, dashes=[3, 3], color=color1, label=label1)
+            ax0.plot(xs, nonmember_mean, dashes=[3, 3], color=color2, label=label2)
+            ax0.set_ylabel("# Citations")
+            ax0.set_xlabel("Patent age")
+            ax0.legend(loc='best')
+            plt.savefig(outputfilename)
+            #plt.show()
+            print("Done.")
 
     def get_csr_quantiles_and_mean(self, csr_matx, tlen_matx, quantiles, xs):
         """Function to compute quantiles and mean and standard deviation from citation curve csr matrix.
             Arguments:
-                csr_matrix: scipy csr sparse matrix     - the citation curve matrix, lines (patents) sorted by age
+                csr_matx: scipy csr sparse matrix     - the citation curve matrix, lines (patents) sorted by age
                 tlen_matx: numpy array                  - list of patent ages sorted in the same way as the matrix
                 quantiles: list of float                - quantiles to be computed
                 xs: numpy array                         - x values of the resulting curve
@@ -356,6 +359,11 @@ class CitationCurveSet():
                 stds: numpy array           - standard deviations
                 qs: tuple of numpy arrays   - quantiles
             """
+        try:
+            assert csr_matx.shape[0] > 0
+        except:
+            print("Error: selection has no data points. Skipping.")
+            return None, None, (None, None, None)                   # TODO: find more generic way to return unsuccessfully?
         qs = {q: [] for q in quantiles}
         means = []
         stds = []
@@ -364,7 +372,7 @@ class CitationCurveSet():
             print("Computed {0:4d}/{1:4d}".format(idx,maxxs), end="\r")
             # sum matrix to right
             alive = np.argmax(tlen_matx > x)
-            rowsums = self.citation_curve_matrix[alive:,:x].sum(axis=1) # submatrix with rows > index(first alive at time x) and columns < (index x)
+            rowsums = csr_matx[alive:,:x].sum(axis=1) # submatrix with rows > index(first alive at time x) and columns < (index x)
             # compute quantiles over this
             for q in quantiles:
                 qs[q].append(np.quantile(rowsums, q))
@@ -376,14 +384,15 @@ class CitationCurveSet():
         means = np.asarray(means)
         stds = np.asarray(stds)
         return means, stds, qs.values()
-
     
+
     #def get_observation_numbers(self, keys, xs):
     #    #ends = [cc[-1] for key, cc in self.citation_curves.items() if key in keys]
     #    end_dates = [self.enddates[key] for key in keys]
     #    ends = list(end_dates)
     #    ends = ends.sort()
     #    return np.asarray([bisect.bisect_right(ends, x) for x in xs])
+
 
 if __name__ == "__main__":
     for vol in [False, True]:
@@ -396,8 +405,11 @@ if __name__ == "__main__":
         CCS.populate_year_separation()
         CCS.populate_green_separation()
         
+        """visualize sares"""
+        CCS.draw_shares()
+        
         """draw central moments and dispersion for green and brown crossectional ensembles"""
-        for separ in CCS.green_separation.columns:                      #TODO: getter method instead of accessing class attribute?
+        for separ in reversed(CCS.green_separation.columns):                      #TODO: getter method instead of accessing class attribute?
             CCS.draw_citation_curve(separ)
             for class_separ in CCS.class_separation.columns:            #TODO: getter method instead of accessing class attribute?
                 CCS.draw_citation_curve(separ, class_sep=class_separ)
