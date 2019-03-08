@@ -292,11 +292,11 @@ class CitationCurveSet():
         if class_sep is not None:
             selection_members = selection_members & self.class_separation[class_sep]
             selection_nonmembers = selection_nonmembers & self.class_separation[class_sep]
-            criterion_name += "_class_" + class_sep + "_"
+            criterion_name += "_class_" + class_sep
         if year_sep is not None:
             selection_members = selection_members & self.year_separation[year_sep]
             selection_nonmembers = selection_nonmembers & self.year_separation[year_sep]
-            criterion_name += "_" + year_sep + "_"
+            criterion_name += "_" + year_sep 
 
         """Typecast from pandas to numpy bool type (otherwise the sparse matrix separation below fails)"""
         selection_members = np.asarray(selection_members)
@@ -328,7 +328,7 @@ class CitationCurveSet():
             color1, color2 = 'C2', 'C1'
             label1, label2 = 'green', 'non-green'
             if self.voluntaryOnly:
-                outputfilename = "comp_citations_by_age_" + criterion_name + "voluntaryOnly.pdf"
+                outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
             else:
                 outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
         
