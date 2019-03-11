@@ -398,13 +398,13 @@ class CitationCurveSet():
         green_by_year = {}
         nongreen_by_year = {}
         green_by_class = {}
-        nongreen_by_year = {}
+        nongreen_by_class = {}
         green_by_year_relative = {}
         green_by_year_relative2 = {}
         nongreen_by_year_relative = {}
         green_by_class_relative = {}
         green_by_class_relative2 = {}
-        nongreen_by_year_relative = {}
+        nongreen_by_class_relative = {}
         dfs = {}
         cats_class = CCS.class_separation.columns
         cats_year = CCS.year_separation.columns
@@ -412,13 +412,13 @@ class CitationCurveSet():
             green_by_year[separ] = []
             nongreen_by_year[separ] = []
             green_by_class[separ] = []
-            nongreen_by_year[separ] = []
+            nongreen_by_class[separ] = []
             green_by_year_relative[separ] = []
             green_by_year_relative2[separ] = []
             nongreen_by_year_relative[separ] = []
             green_by_class_relative[separ] = []
             green_by_class_relative2[separ] = []
-            nongreen_by_year_relative[separ] = []
+            nongreen_by_class_relative[separ] = []
             dfs[separ] = pd.DataFrame(index=cats_class)
             for class_sep in cats_class:
                 mnumber = np.sum((self.green_separation[separ]==True) & self.class_separation[class_sep])
@@ -440,104 +440,131 @@ class CitationCurveSet():
                 nongreen_by_year_relative[separ].append(nnumber * 1. / (tnumber))
                 pdseries = []
                 for class_sep in CCS.class_separation.columns:
-                    mnumber = np.sum((self.green_separation[separ]==True) & self.year_separation[class_sep] & self.year_separation[class_sep])
-                    nnumber = np.sum((self.green_separation[separ]==False) & self.year_separation[class_sep])
+                    print("Year: " + str(year_sep) + ", Class " + class_sep)
+                    #pdb.set_trace()
+                    mnumber = np.sum((self.green_separation[separ]==True) & self.class_separation[class_sep] & self.year_separation[year_sep])
+                    nnumber = np.sum((self.green_separation[separ]==False) & self.class_separation[class_sep] & self.year_separation[year_sep])
                     pdseries.append(mnumber * 1. / (mnumber + nnumber))     # this time relative to sum of green+non-green, disregarding any unclassified
                 dfs[separ][year_sep] = pdseries
             
+            with open("size_data.pkl","wb") as wfile:
+                wdata = (green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year)
+                #(green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year) = wdata
+                pickle.dump(wdata, wfile, protocol=pickle.HIGHEST_PROTOCOL)
+            
             """bar plot class"""
             plotfilename = "Shares_by_class_" + separ + ".pdf"
-            plot_title = "Shares by class " + separ
+            plot_title = "Shares by class - " + separ
             gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
             
             ax0 = plt.subplot(gs[0])
             xs = np.arange(len(cats_class))    # the x locations for the groups
             width = 0.35       # the width of the bars: can also be len(x) sequence
-            ax0.bar(xs, green_by_class[separ], width)
-            ax0.bar(xs, nongreen_by_class[separ], width, bottom=green_by_class[separ])            
+            ax0.bar(xs, green_by_class[separ], width, color="C2")
+            ax0.bar(xs, nongreen_by_class[separ], width, bottom=green_by_class[separ], color="C1")            
             ax0.set_ylabel('No. of patents')
-            ax0.set_xticks(xs, ["" for cat in cats_class])
+            ax0.set_xticks(xs)
+            ax0.set_xticklabels(["" for cat in cats_class])
+            plt.title(plot_title)
             
             ax1 = plt.subplot(gs[1])
-            ax1.bar(xs, green_by_class_relative[separ], width)
-            ax1.bar(xs, nongreen_by_class_relative[separ], width, bottom=green_by_class_relative[separ])
+            ax1.bar(xs, green_by_class_relative[separ], width, color="C2")
+            ax1.bar(xs, nongreen_by_class_relative[separ], width, bottom=green_by_class_relative[separ], color="C1")
             ax1.set_ylabel('Share of patents')
-            ax1.set_xticks(xs, cats_class)
-            plt.title(plot_title)
+            ax1.set_xticks(xs)
+            ax1.set_xticklabels(cats_class)
             plt.tight_layout()
             plt.savefig(plotfilename)
 
             """bar plot year"""
             plotfilename = "Shares_by_year_" + separ + ".pdf"
-            plot_title = "Shares by year " + separ
+            plot_title = "Shares by year - " + separ
             gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
             
             ax0 = plt.subplot(gs[0])
             xs = np.arange(len(cats_year))    # the x locations for the groups
             width = 0.35       # the width of the bars: can also be len(x) sequence
-            ax0.bar(xs, green_by_year[separ], width)
-            ax0.bar(xs, nongreen_by_year[separ], width, bottom=green_by_year[separ])            
+            ax0.bar(xs, green_by_year[separ], width, color="C2")
+            ax0.bar(xs, nongreen_by_year[separ], width, bottom=green_by_year[separ], color="C1")            
             ax0.set_ylabel('No. of patents')
-            ax0.set_xticks(xs, ["" for cat in cats_year])
+            ax0.set_xticks(xs)
+            ax0.set_xticklabels(["" for cat in cats_year])
+            plt.title(plot_title)
             
             ax1 = plt.subplot(gs[1])
-            ax1.bar(xs, green_by_year_relative[separ], width)
-            ax1.bar(xs, nongreen_by_year_relative[separ], width, bottom=green_by_year_relative[separ])
+            ax1.bar(xs, green_by_year_relative[separ], width, color="C2")
+            ax1.bar(xs, nongreen_by_year_relative[separ], width, bottom=green_by_year_relative[separ], color="C1")
             ax1.set_ylabel('Share of patents')
-            ax1.set_xticks(xs, cats_year)
-            plt.title(plot_title)
+            ax1.set_xticks(xs)
+            ax1.set_xticklabels([cat if i//5==i/5. else "" for i, cat in enumerate(cats_year)])
             plt.tight_layout()
             plt.savefig(plotfilename)
             
             """heatmap plot"""
             plotfilename = "Shares_by_both_" + separ + ".pdf"
-            plot_title = "Shares by year and class " + separ
-
+            plot_title = "Shares of green patents by year and class - " + separ
+            
+            plt.figure()
             plt.pcolor(dfs[separ])
+            xlabels = [cat if i//5==i/5. else "" for i, cat in enumerate(dfs[separ].columns)]
             plt.yticks(np.arange(0.5, len(dfs[separ].index), 1), dfs[separ].index)
-            plt.xticks(np.arange(0.5, len(dfs[separ].columns), 1), dfs[separ].columns)
+            plt.xticks(np.arange(0.5, len(dfs[separ].columns), 1), xlabels)
             plt.colorbar()
             plt.title(plot_title)
             plt.tight_layout()
             plt.savefig(plotfilename)
             
         """line plot class"""
-        plotfilename = "Shares_by_year_all.pdf"
-        plot_title = "Shares by year"
+        plotfilename = "Shares_by_class_all.pdf"
+        plot_title = "Shares by class"
         xs = np.arange(len(cats_class))
         fig, ax = plt.subplots(nrows=3)
-        for separ in self.green_separation.columns:
+        figst = fig.suptitle(plot_title)
+        for separ in dfs.keys():
             ax[0].plot(xs, green_by_class[separ], label=separ)
             ax[1].plot(xs, nongreen_by_class[separ], label=separ)
             ax[2].plot(xs, green_by_class_relative2[separ], label=separ)
         ax[0].set_ylabel('Green patents')
-        ax[0].set_xticks(xs, ["" for cat in cats_class])
+        ax[0].set_xticks(xs)
+        ax[0].set_xticklabels(["" for cat in cats_class])
+        legendhandles, legendlabels = ax[0].get_legend_handles_labels()
+        ax[0].legend("best", handles=legendhandles, labels=legendlabels)
         ax[1].set_ylabel('Non-green patents')
-        ax[1].set_xticks(xs, ["" for cat in cats_class])
+        ax[1].set_xticks(xs)
+        ax[1].set_xticklabels(["" for cat in cats_class])
         ax[2].set_ylabel('Share green')
-        ax[2].set_xticks(xs, cats_class)
-        plt.title(plot_title)
-        plt.tight_layout()
-        plt.savefig(plotfilename)
-        
+        ax[2].set_xticks(xs)
+        ax[2].set_xticklabels(cats_class)
+        fig.tight_layout()  
+        figst.set_y(0.975)
+        fig.subplots_adjust(top=0.91)
+        fig.savefig(plotfilename)
+
         """line plot year"""
         plotfilename = "Shares_by_year_all.pdf"
         plot_title = "Shares by year"
         xs = np.arange(len(cats_year))
         fig, ax = plt.subplots(nrows=3)
-        for separ in self.green_separation.columns:
+        figst = fig.suptitle(plot_title)
+        for separ in dfs.keys():
             ax[0].plot(xs, green_by_year[separ], label=separ)
             ax[1].plot(xs, nongreen_by_year[separ], label=separ)
             ax[2].plot(xs, green_by_year_relative2[separ], label=separ)
         ax[0].set_ylabel('Green patents')
-        ax[0].set_xticks(xs, ["" for cat in cats_year])
+        ax[0].set_xticks(xs)
+        ax[0].set_xticklabels(["" for cat in cats_year])
+        legendhandles, legendlabels = ax[0].get_legend_handles_labels()
+        ax[0].legend("best", handles=legendhandles, labels=legendlabels)
         ax[1].set_ylabel('Non-green patents')
-        ax[1].set_xticks(xs, ["" for cat in cats_year])
+        ax[1].set_xticks(xs)
+        ax[1].set_xticklabels(["" for cat in cats_year])
         ax[2].set_ylabel('Share green')
-        ax[2].set_xticks(xs, cats_year)
-        plt.title(plot_title)
-        plt.tight_layout()
-        plt.savefig(plotfilename)
+        ax[2].set_xticks(xs)
+        ax[2].set_xticklabels([cat if i//5==i/5. else "" for i, cat in enumerate(cats_year)])
+        fig.tight_layout()  
+        figst.set_y(0.975)
+        fig.subplots_adjust(top=0.91)
+        fig.savefig(plotfilename)
             
 
 if __name__ == "__main__":
