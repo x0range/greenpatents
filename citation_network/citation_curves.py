@@ -95,8 +95,10 @@ class CitationCurveSet():
             print("Obtaining keys...")
             self.citation_curves_keys = np.asarray(list(self.citation_curves.keys()))
             print("Cleaning and sorting dates list...")
-            pddf = pddf.loc[self.citation_curves_keys]
-            pddf = pddf.loc[pddf["granted date"].notnull()]
+            #pddf = pddf.loc[self.citation_curves_keys]
+            #pddf = pddf.loc[pddf["granted date"].notnull()]
+            pddf = pddf.reindex(self.citation_curves_keys)
+            pddf = pddf.reindex(pddf["granted date"].notnull())
             pddf = pddf.sort_values(by=["granted date"], ascending=False)
             print("Obtaining cleaned keys...")
             self.citation_curves_keys = np.asarray(pddf.index)
@@ -186,7 +188,8 @@ class CitationCurveSet():
                 cpc_df[cat] = cat_presence
             
             """Select correct subset in correct order"""
-            self.class_separation = cpc_df.loc[self.citation_curves_keys]
+            #self.class_separation = cpc_df.loc[self.citation_curves_keys]      # deprecated
+            self.class_separation = cpc_df.reindex(self.citation_curves_keys)
             
             """Fill NA entries as False (not belonging to this category)"""
             for cat in categs:
@@ -216,7 +219,7 @@ class CitationCurveSet():
                 CPC_df = pd.read_pickle(rfile)
                 CPC_df.index = rm_leading_zeros(CPC_df.index)
             """Select correct IDs in correct order"""
-            self.green_separation = CPC_df.loc[self.citation_curves_keys]
+            self.green_separation = CPC_df.reindex(self.citation_curves_keys)
             
             """Keyword based"""
             with open(keyword_greenness_file, "rb") as rfile:
@@ -226,12 +229,14 @@ class CitationCurveSet():
                 """Remove pattern match information, only keep index (all rows were positive identifications)"""
                 keyword_shapira["keyword_shapira"] = True
                 keyword_shapira = keyword_shapira[["keyword_shapira"]]
+            """Remove duplicate rows"""                     # TODO: why are there duplicate rows??
+            keyword_shapira = keyword_shapira[~keyword_shapira.index.duplicated(keep='first')]
             """Select correct IDs in correct order"""
-            keyword_shapira = keyword_shapira.loc[self.citation_curves_keys]
+            keyword_shapira = keyword_shapira.reindex(self.citation_curves_keys)
             """Fill NA as False. (All present IDs are True.)"""
             keyword_shapira["keyword_shapira"].fillna(False,inplace=True)    #TODO: colname
             
-            """Attach keyword basedto dataframe"""
+            """Attach keyword based to dataframe"""
             self.green_separation["keyword_shapira"] = keyword_shapira["keyword_shapira"]
             
             """Save"""
@@ -263,7 +268,8 @@ class CitationCurveSet():
             pddf = pddf[[str(cat) for cat in categs]]
 
             """Select correct IDs in correct order"""
-            self.year_separation = pddf.loc[self.citation_curves_keys]
+            #self.year_separation = pddf.loc[self.citation_curves_keys]     # deprecated
+            self.year_separation = pddf.reindex(self.citation_curves_keys)
             
             """Save"""
             self.year_separation.to_pickle(self.separationYearFile)
