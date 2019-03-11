@@ -364,6 +364,7 @@ class CitationCurveSet():
         except:
             print("Error: selection has no data points. Skipping.")
             return None, None, (None, None, None)                   # TODO: find more generic way to return unsuccessfully?
+            #pdb.set_trace()
         qs = {q: [] for q in quantiles}
         means = []
         stds = []
@@ -395,6 +396,11 @@ class CitationCurveSet():
 
     def draw_shares(self):
         """TODO"""
+        
+        if self.voluntaryOnly:
+            series_filename_postfix = "_voluntaryOnly"
+        else:
+            series_filename_postfix = ""
         green_by_year = {}
         nongreen_by_year = {}
         green_by_class = {}
@@ -447,13 +453,8 @@ class CitationCurveSet():
                     pdseries.append(mnumber * 1. / (mnumber + nnumber))     # this time relative to sum of green+non-green, disregarding any unclassified
                 dfs[separ][year_sep] = pdseries
             
-            with open("size_data.pkl","wb") as wfile:
-                wdata = (green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year)
-                #(green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year) = wdata
-                pickle.dump(wdata, wfile, protocol=pickle.HIGHEST_PROTOCOL)
-            
             """bar plot class"""
-            plotfilename = "Shares_by_class_" + separ + ".pdf"
+            plotfilename = "Shares_by_class_" + separ + series_filename_postfix + ".pdf"
             plot_title = "Shares by class - " + separ
             gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
             
@@ -477,7 +478,7 @@ class CitationCurveSet():
             plt.savefig(plotfilename)
 
             """bar plot year"""
-            plotfilename = "Shares_by_year_" + separ + ".pdf"
+            plotfilename = "Shares_by_year_" + separ + series_filename_postfix + ".pdf"
             plot_title = "Shares by year - " + separ
             gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1]) 
             
@@ -501,7 +502,7 @@ class CitationCurveSet():
             plt.savefig(plotfilename)
             
             """heatmap plot"""
-            plotfilename = "Shares_by_both_" + separ + ".pdf"
+            plotfilename = "Shares_by_both_" + separ + series_filename_postfix + ".pdf"
             plot_title = "Shares of green patents by year and class - " + separ
             
             plt.figure()
@@ -515,7 +516,7 @@ class CitationCurveSet():
             plt.savefig(plotfilename)
             
         """line plot class"""
-        plotfilename = "Shares_by_class_all.pdf"
+        plotfilename = "Shares_by_class_all" + series_filename_postfix + ".pdf"
         plot_title = "Shares by class"
         xs = np.arange(len(cats_class))
         fig, ax = plt.subplots(nrows=3)
@@ -541,7 +542,7 @@ class CitationCurveSet():
         fig.savefig(plotfilename)
 
         """line plot year"""
-        plotfilename = "Shares_by_year_all.pdf"
+        plotfilename = "Shares_by_year_all" + series_filename_postfix + ".pdf"
         plot_title = "Shares by year"
         xs = np.arange(len(cats_year))
         fig, ax = plt.subplots(nrows=3)
@@ -565,6 +566,12 @@ class CitationCurveSet():
         figst.set_y(0.975)
         fig.subplots_adjust(top=0.91)
         fig.savefig(plotfilename)
+
+        with open("size_data" + series_filename_postfix + ".pkl","wb") as wfile:
+            wdata = (green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year)
+            #(green_by_year, nongreen_by_year, green_by_class, nongreen_by_class, green_by_year_relative, green_by_year_relative2, nongreen_by_year_relative, green_by_class_relative, green_by_class_relative2, nongreen_by_class_relative, dfs, cats_class, cats_year) = wdata
+            pickle.dump(wdata, wfile, protocol=pickle.HIGHEST_PROTOCOL)
+        
             
 
 if __name__ == "__main__":
