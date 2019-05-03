@@ -334,7 +334,7 @@ class CitationCurveSet():
                 outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
             else:
                 outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
-            self.plot_time_development(labels = ['green', 'non-green'],
+            self.draw_time_development(labels = ['green', 'non-green'],
                                        colors = ['C2', 'C1'],
                                        means = [member_mean, nonmember_mean],
                                        medians = [member_median, nonmember_median],
@@ -343,7 +343,7 @@ class CitationCurveSet():
                                        xs = xs,
                                        xlabel = "Patent age",
                                        ylabel = "# Citations",
-                                       outputfilename = outputfilename):
+                                       outputfilename = outputfilename)
 
         ## Plot and save
         #if member_mean is not None and nonmember_mean is not None:
@@ -370,7 +370,7 @@ class CitationCurveSet():
         #    #plt.show()
         #    print("Done.")
 
-    def draw_time_development(labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename):
+    def draw_time_development(self, labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename):
         """Function to draw time development curves with mean, median, IQR
             Arguments:
                 labels: list of str         - curve labels
@@ -387,12 +387,12 @@ class CitationCurveSet():
             """
         assert len(labels) == len(colors) == len(means) == len(medians) == len (iqr_high) == len(iqr_low)
         print("Drawing...")
-        fig =  = plt.figure()
+        fig = plt.figure()
         ax0 = fig.add_subplot(111)
         for i in range(len(labels)):
             ax0.fill_between(xs, iqr_low[i], iqr_high[i], facecolor=colors[i], alpha=0.25)
             ax0.plot(xs, medians[i], color=colors[i], label=labels[i])
-            ax0.plot(xs, means[i], dashes=[3, 3], color=colors[i], label=labels[i])
+            ax0.plot(xs, means[i], dashes=[3, 3], color=colors[i])
         ax0.set_ylabel(ylabel)
         ax0.set_xlabel(xlabel)
         ax0.legend(loc='best')
@@ -639,7 +639,7 @@ if __name__ == "__main__":
         CCS.populate_green_separation()
         
         """visualize sares"""
-        CCS.draw_shares()
+        #CCS.draw_shares()
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
         for separ in reversed(CCS.green_separation.columns):                      #TODO: getter method instead of accessing class attribute?
