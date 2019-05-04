@@ -308,15 +308,18 @@ class CitationCurveSet():
         
         return selection_members, selection_nonmembers, criterion_name
 
-    def draw_citation_curve(self, criterion, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
-        """Function for drawing representative member and non-member citation curves using a particular criterion.
+    def draw_citation_curve(self, criterion, do_plot=True, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
+        """Function for computing and drawing representative member and non-member citation curves using a particular criterion.
             Arguments:
                 criterion: string           - criterion name
                 class_sep: None or str      - CPC class category to be selected (if None, select all)
                 year_sep: None or str       - Granted year category to be selected (if None, select all)
+                do_plot: bool               - Indicator if plot should be drawn or only the time series computed
                 quantile_low: float         - lower bound of inter quantile range
                 quantile_high: float        - upper bound of inter quantile range
-            Returns: None"""
+            Returns: 
+                returndict: dict of 10 numpy nd arrays - representing mean, median, std, low and high quantile series for 
+                                                         members and nonmembers."""
         print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
         xs = np.arange(0, self.maxlen, 150)
         mseries = {}
@@ -349,7 +352,7 @@ class CitationCurveSet():
         print("Done.")
 
         # Plot and save
-        if member_mean is not None and nonmember_mean is not None:
+        if do_plot and member_mean is not None and nonmember_mean is not None:
             if self.voluntaryOnly:
                 outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
             else:
@@ -364,6 +367,18 @@ class CitationCurveSet():
                                        xlabel = "Patent age",
                                        ylabel = "# Citations",
                                        outputfilename = outputfilename)
+        
+        returndict = {"member_mean": member_mean, 
+                      "nonmember_mean": nonmember_mean, 
+                      "member_median": member_median, 
+                      "nonmember_median": nonmember_median,
+                      "member_std": member_std,
+                      "nonmember_std": nonmember_std,
+                      "member_high": member_high, 
+                      "nonmember_high": nonmember_high,
+                      "member_low": member_low,
+                      "nonmember_low": nonmember_low}
+        return returndict
 
     def draw_time_development(self, labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename):
         """Function to draw time development curves with mean, median, IQR
