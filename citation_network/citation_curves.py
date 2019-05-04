@@ -308,13 +308,13 @@ class CitationCurveSet():
         
         return selection_members, selection_nonmembers, criterion_name
 
-    def draw_x_year_curve(self, criterion, class_sep=None, year_lags, quantile_low=0.25, quantile_high=0.75):
+    def draw_x_year_curve(self, criterion, year_lags, class_sep=None, quantile_low=0.25, quantile_high=0.75):
         """Function for drawing representative member and non-member curves of citations after x days using a 
            particular criterion. X axis is year granted
             Arguments:
                 criterion: string           - criterion name
-                class_sep: None or str      - CPC class category to be selected (if None, select all)
                 year_lags: list of int      - list of time lags for which this should be drawn.
+                class_sep: None or str      - CPC class category to be selected (if None, select all)
                 quantile_low: float         - lower bound of inter quantile range
                 quantile_high: float        - upper bound of inter quantile range
             Returns: None"""
@@ -341,16 +341,16 @@ class CitationCurveSet():
             
             for lag in lags:
                 # select correct lag element, assign to variables
-                member_means[lag].append(curves["member_mean"][lag] 
-                nonmember_means[lag].append(curves["nonmember_mean"][lag] 
-                member_medians[lag].append(curves["member_median"][lag] 
-                nonmember_medians[lag].append(curves["nonmember_median"][lag] 
-                member_stds[lag].append(curves["member_std"][lag] 
-                nonmember_stds[lag].append(curves["nonmember_std"][lag] 
-                member_highs[lag].append(curves["member_high"][lag] 
-                nonmember_highs[lag].append(curves["nonmember_high"][lag] 
-                member_lows[lag].append(curves["member_low"][lag] 
-                nonmember_lows[lag].append(curves["nonmember_low"][lag] 
+                member_means[lag].append(curves["member_mean"][lag])
+                nonmember_means[lag].append(curves["nonmember_mean"][lag]) 
+                member_medians[lag].append(curves["member_median"][lag])
+                nonmember_medians[lag].append(curves["nonmember_median"][lag])
+                member_stds[lag].append(curves["member_std"][lag])
+                nonmember_stds[lag].append(curves["nonmember_std"][lag])
+                member_highs[lag].append(curves["member_high"][lag])
+                nonmember_highs[lag].append(curves["nonmember_high"][lag])
+                member_lows[lag].append(curves["member_low"][lag])
+                nonmember_lows[lag].append(curves["nonmember_low"][lag])
 
         for i, lag in enumerate(lags):
             if self.voluntaryOnly:
