@@ -345,31 +345,6 @@ class CitationCurveSet():
                                        ylabel = "# Citations",
                                        outputfilename = outputfilename)
 
-        ## Plot and save
-        #if member_mean is not None and nonmember_mean is not None:
-        #    print("Drawing...")
-        #    color1, color2 = 'C2', 'C1'
-        #    label1, label2 = 'green', 'non-green'
-        #    if self.voluntaryOnly:
-        #        outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
-        #    else:
-        #        outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
-        #
-        #    fig = plt.figure()
-        #    ax0 = fig.add_subplot(111)
-        #    ax0.fill_between(xs, member_low, member_high, facecolor=color1, alpha=0.25)
-        #    ax0.fill_between(xs, nonmember_low, nonmember_high, facecolor=color2, alpha=0.25)
-        #    ax0.plot(xs, member_median, color=color1, label=label1)
-        #    ax0.plot(xs, nonmember_median, color=color2, label=label2)
-        #    ax0.plot(xs, member_mean, dashes=[3, 3], color=color1, label=label1)
-        #    ax0.plot(xs, nonmember_mean, dashes=[3, 3], color=color2, label=label2)
-        #    ax0.set_ylabel("# Citations")
-        #    ax0.set_xlabel("Patent age")
-        #    ax0.legend(loc='best')
-        #    plt.savefig(outputfilename)
-        #    #plt.show()
-        #    print("Done.")
-
     def draw_time_development(self, labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename):
         """Function to draw time development curves with mean, median, IQR
             Arguments:
