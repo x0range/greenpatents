@@ -274,7 +274,7 @@ class CitationCurveSet():
             """Save"""
             self.year_separation.to_pickle(self.separationYearFile)
 
-    def separate_set(self, separ, criterion, class_sep=None, year_sep=None):
+    def separate_set(self, criterion, class_sep=None, year_sep=None):
         """Function to separate sets of patents by greenness and additional categories.
             Arguments:
                 criterion: string           - criterion name
