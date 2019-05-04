@@ -274,21 +274,19 @@ class CitationCurveSet():
             """Save"""
             self.year_separation.to_pickle(self.separationYearFile)
 
-    def draw_citation_curve(self, criterion, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
-        """Function for drawing representative member and non-member citation curves using a particular criterion.
+    def separate_set(self, separ, criterion, class_sep=None, year_sep=None):
+        """Function to separate sets of patents by greenness and additional categories.
             Arguments:
                 criterion: string           - criterion name
                 class_sep: None or str      - CPC class category to be selected (if None, select all)
                 year_sep: None or str       - Granted year category to be selected (if None, select all)
                 quantile_low: float         - lower bound of inter quantile range
                 quantile_high: float        - upper bound of inter quantile range
-            Returns: None"""
-        print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
-        xs = np.arange(0, self.maxlen, 150)
-        mseries = {}
-        tlens = {}
-        
-        """ separate matrix"""
+            Returns: 
+                numpy ndarray of bool       - selection of members (marked True)
+                numpy ndarray of bool       - selection of non-members (members market False, others True)
+                string                      - criterion name for selection, for use in output file name
+            """
         """Separation by green tech membership"""
         selection_members = self.green_separation[separ]==True
         selection_nonmembers = self.green_separation[separ]==False
@@ -307,6 +305,48 @@ class CitationCurveSet():
         """Typecast from pandas to numpy bool type (otherwise the sparse matrix separation below fails)"""
         selection_members = np.asarray(selection_members)
         selection_nonmembers = np.asarray(selection_nonmembers)
+        
+        return selection_members, selection_nonmembers, criterion_name
+
+    def draw_citation_curve(self, criterion, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
+        """Function for drawing representative member and non-member citation curves using a particular criterion.
+            Arguments:
+                criterion: string           - criterion name
+                class_sep: None or str      - CPC class category to be selected (if None, select all)
+                year_sep: None or str       - Granted year category to be selected (if None, select all)
+                quantile_low: float         - lower bound of inter quantile range
+                quantile_high: float        - upper bound of inter quantile range
+            Returns: None"""
+        print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
+        xs = np.arange(0, self.maxlen, 150)
+        mseries = {}
+        tlens = {}
+        
+        """ separate matrix"""
+        selection_members, selection_nonmembers, criterion_name = self.separate_set(separ = separ,
+                                                                                criterion = criterion,
+                                                                                class_sep = class_sep, 
+                                                                                year_sep = year_sep)
+        #"""Separation by green tech membership"""
+        #selection_members = self.green_separation[separ]==True
+        #selection_nonmembers = self.green_separation[separ]==False
+        #criterion_name = criterion
+        #
+        #"""Add separation by other categories logically"""
+        #if class_sep is not None:
+        #    selection_members = selection_members & self.class_separation[class_sep]
+        #    selection_nonmembers = selection_nonmembers & self.class_separation[class_sep]
+        #    criterion_name += "_class_" + class_sep
+        #if year_sep is not None:
+        #    selection_members = selection_members & self.year_separation[year_sep]
+        #    selection_nonmembers = selection_nonmembers & self.year_separation[year_sep]
+        #    criterion_name += "_" + year_sep 
+        #
+        #"""Typecast from pandas to numpy bool type (otherwise the sparse matrix separation below fails)"""
+        #selection_members = np.asarray(selection_members)
+        #selection_nonmembers = np.asarray(selection_nonmembers)
+        
+        
         print("   ...separating matrix")
         #pdb.set_trace()
         mseries["members"] = self.citation_curve_matrix[selection_members]
