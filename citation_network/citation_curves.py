@@ -308,6 +308,68 @@ class CitationCurveSet():
         
         return selection_members, selection_nonmembers, criterion_name
 
+    def draw_x_year_curve(self, criterion, class_sep=None, year_lags, quantile_low=0.25, quantile_high=0.75):
+        """Function for drawing representative member and non-member curves of citations after x days using a 
+           particular criterion. X axis is year granted
+            Arguments:
+                criterion: string           - criterion name
+                class_sep: None or str      - CPC class category to be selected (if None, select all)
+                year_lags: list of int      - list of time lags for which this should be drawn.
+                quantile_low: float         - lower bound of inter quantile range
+                quantile_high: float        - upper bound of inter quantile range
+            Returns: None"""
+        
+        lags = [np.int64(np.round(lag*365.25)) for lag in year_lags]
+        
+        # prepare variables
+        member_means = {lag: [] for lag in lags}
+        nonmember_means = {lag: [] for lag in lags}
+        member_medians = {lag: [] for lag in lags}
+        nonmember_medians = {lag: [] for lag in lags}
+        member_stds = {lag: [] for lag in lags}
+        nonmember_stds = {lag: [] for lag in lags}
+        member_highs = {lag: [] for lag in lags}
+        nonmember_highs = {lag: [] for lag in lags}
+        member_lows = {lag: [] for lag in lags}
+        nonmember_lows = {lag: [] for lag in lags}
+        
+        # go through years,
+        years = CCS.year_separation.columns
+        for year in years: 
+            curves = draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
+                                            quantile_low=quantile_low, quantile_high=quantile_high)
+            
+            for lag in lags:
+                # select correct lag element, assign to variables
+                member_means[lag].append(curves["member_mean"][lag] 
+                nonmember_means[lag].append(curves["nonmember_mean"][lag] 
+                member_medians[lag].append(curves["member_median"][lag] 
+                nonmember_medians[lag].append(curves["nonmember_median"][lag] 
+                member_stds[lag].append(curves["member_std"][lag] 
+                nonmember_stds[lag].append(curves["nonmember_std"][lag] 
+                member_highs[lag].append(curves["member_high"][lag] 
+                nonmember_highs[lag].append(curves["nonmember_high"][lag] 
+                member_lows[lag].append(curves["member_low"][lag] 
+                nonmember_lows[lag].append(curves["nonmember_low"][lag] 
+
+        for i, lag in enumerate(lags):
+            if self.voluntaryOnly:
+                outputfilename = "comp_citations_" + str(year_lags[i]) + "_year_" + criterion_name + "_voluntaryOnly.pdf"
+            else:
+                outputfilename = "comp_citations_" + str(year_lags[i]) + "_year_" + criterion_name + ".pdf"
+            # draw
+            self.draw_time_development(labels = ['green', 'non-green'],
+                                       colors = ['C2', 'C1'],
+                                       means = [member_means[lag], nonmember_means[lag]],
+                                       medians = [member_medians[lag], nonmember_medians[lag]],
+                                       iqr_high = [member_highs[lag], nonmember_highs[lag]],
+                                       iqr_low = [member_lows[lag], nonmember_lows[lag]],
+                                       xs = years,
+                                       xlabel = "Year",
+                                       ylabel = "# Citations after " + str(year_lags[i]) + " years",
+                                       outputfilename = outputfilename)
+            
+        
     def draw_citation_curve(self, criterion, do_plot=True, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
         """Function for computing and drawing representative member and non-member citation curves using a particular criterion.
             Arguments:
