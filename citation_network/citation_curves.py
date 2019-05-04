@@ -288,8 +288,8 @@ class CitationCurveSet():
                 string                      - criterion name for selection, for use in output file name
             """
         """Separation by green tech membership"""
-        selection_members = self.green_separation[separ]==True
-        selection_nonmembers = self.green_separation[separ]==False
+        selection_members = self.green_separation[criterion]==True
+        selection_nonmembers = self.green_separation[criterion]==False
         criterion_name = criterion
         
         """Add separation by other categories logically"""
@@ -323,8 +323,7 @@ class CitationCurveSet():
         tlens = {}
         
         """ separate matrix"""
-        selection_members, selection_nonmembers, criterion_name = self.separate_set(separ = separ,
-                                                                                criterion = criterion,
+        selection_members, selection_nonmembers, criterion_name = self.separate_set(criterion = criterion,
                                                                                 class_sep = class_sep, 
                                                                                 year_sep = year_sep)
 
