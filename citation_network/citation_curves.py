@@ -336,23 +336,31 @@ class CitationCurveSet():
         
         # go through years,
         years = CCS.year_separation.columns
-        for year in years: 
-            curves = draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
-                                            quantile_low=quantile_low, quantile_high=quantile_high)
+        
+        years_inapplicable = [[] for lag in lags]
+        for j, year in enumerate(years): 
+            #curves2 = self.draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
+            #                    quantile_low=quantile_low, quantile_high=quantile_high)
+            curves = self.draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
+                                quantile_low=quantile_low, quantile_high=quantile_high, xs=np.asarray(lags))
             
-            for lag in lags:
+            for i, lag in enumerate(lags):
                 # select correct lag element, assign to variables
-                member_means[lag].append(curves["member_mean"][lag])
-                nonmember_means[lag].append(curves["nonmember_mean"][lag]) 
-                member_medians[lag].append(curves["member_median"][lag])
-                nonmember_medians[lag].append(curves["nonmember_median"][lag])
-                member_stds[lag].append(curves["member_std"][lag])
-                nonmember_stds[lag].append(curves["nonmember_std"][lag])
-                member_highs[lag].append(curves["member_high"][lag])
-                nonmember_highs[lag].append(curves["nonmember_high"][lag])
-                member_lows[lag].append(curves["member_low"][lag])
-                nonmember_lows[lag].append(curves["nonmember_low"][lag])
-
+                if curves["member_mean"] is not None and curves["nonmember_mean"] is not None:
+                    member_means[lag].append(curves["member_mean"][i])
+                    nonmember_means[lag].append(curves["nonmember_mean"][i]) 
+                    member_medians[lag].append(curves["member_median"][i])
+                    nonmember_medians[lag].append(curves["nonmember_median"][i])
+                    member_stds[lag].append(curves["member_std"][i])
+                    nonmember_stds[lag].append(curves["nonmember_std"][i])
+                    member_highs[lag].append(curves["member_high"][i])
+                    nonmember_highs[lag].append(curves["nonmember_high"][i])
+                    member_lows[lag].append(curves["member_low"][i])
+                    nonmember_lows[lag].append(curves["nonmember_low"][i])
+                else:
+                    years_inapplicable[i].append(j)
+        
+        criterion_name = criterion if class_sep is None else criterion + "_class_" + class_sep
         for i, lag in enumerate(lags):
             if self.voluntaryOnly:
                 outputfilename = "comp_citations_" + str(year_lags[i]) + "_year_" + criterion_name + "_voluntaryOnly.pdf"
@@ -365,13 +373,13 @@ class CitationCurveSet():
                                        medians = [member_medians[lag], nonmember_medians[lag]],
                                        iqr_high = [member_highs[lag], nonmember_highs[lag]],
                                        iqr_low = [member_lows[lag], nonmember_lows[lag]],
-                                       xs = years,
+                                       xs = np.delete(years, years_inapplicable[i]),
                                        xlabel = "Year",
                                        ylabel = "# Citations after " + str(year_lags[i]) + " years",
                                        outputfilename = outputfilename)
             
         
-    def draw_citation_curve(self, criterion, do_plot=True, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75):
+    def draw_citation_curve(self, criterion, do_plot=True, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75, xs=None):
         """Function for computing and drawing representative member and non-member citation curves using a particular criterion.
             Arguments:
                 criterion: string           - criterion name
@@ -380,11 +388,14 @@ class CitationCurveSet():
                 do_plot: bool               - Indicator if plot should be drawn or only the time series computed
                 quantile_low: float         - lower bound of inter quantile range
                 quantile_high: float        - upper bound of inter quantile range
+                xs: None or numpy ndarray   - time lags for which to compute the curve
             Returns: 
                 returndict: dict of 10 numpy nd arrays - representing mean, median, std, low and high quantile series for 
                                                          members and nonmembers."""
         print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
-        xs = np.arange(0, self.maxlen, 150)
+        if xs is None:
+            xs = np.arange(0, self.maxlen, 150)
+            #xs = np.asarray([np.int64(np.round(x)) for x in np.arange(0,7000,365.25/2.)])      # half year steps
         mseries = {}
         tlens = {}
         
@@ -427,7 +438,9 @@ class CitationCurveSet():
                                        iqr_high = [member_high, nonmember_high],
                                        iqr_low = [member_low, nonmember_low],
                                        xs = xs,
+                                       #xs = np.round(xs/365.25, 2),
                                        xlabel = "Patent age",
+                                       #xlabel = "Patent age in years",
                                        ylabel = "# Citations",
                                        outputfilename = outputfilename)
         
@@ -496,7 +509,7 @@ class CitationCurveSet():
         stds = []
         maxxs = len(xs)
         for idx, x in enumerate(xs):
-            print("Computed {0:4d}/{1:4d}".format(idx,maxxs), end="\r")
+            print("Computed {0:4d}/{1:4d}".format(idx+1, maxxs), end="\r")
             # sum matrix to right
             alive = np.argmax(tlen_matx > x)
             rowsums = csr_matx[alive:,:x].sum(axis=1) # submatrix with rows > index(first alive at time x) and columns < (index x)
