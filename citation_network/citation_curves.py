@@ -367,6 +367,8 @@ class CitationCurveSet():
             else:
                 outputfilename = "comp_citations_" + str(year_lags[i]) + "_year_" + criterion_name + ".pdf"
             # draw
+            skip_last_periods = max(0, int(years[-1]) - int(CCS.year_separation.columns[-1]) + year_lags[i])
+            print(skip_last_periods, int(years[-1]), int(CCS.year_separation.columns[-1]), year_lags[i])
             self.draw_time_development(labels = ['green', 'non-green'],
                                        colors = ['C2', 'C1'],
                                        means = [member_means[lag], nonmember_means[lag]],
@@ -376,7 +378,9 @@ class CitationCurveSet():
                                        xs = np.delete(years, years_inapplicable[i]),
                                        xlabel = "Year",
                                        ylabel = "# Citations after " + str(year_lags[i]) + " years",
-                                       outputfilename = outputfilename)
+                                       outputfilename = outputfilename,
+                                       xlimits = [1976, 2018],
+                                       skip_last_periods = skip_last_periods)
             
         
     def draw_citation_curve(self, criterion, do_plot=True, class_sep=None, year_sep=None, quantile_low=0.25, quantile_high=0.75, xs=None):
@@ -431,6 +435,7 @@ class CitationCurveSet():
                 outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
             else:
                 outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
+            skip_last_periods = 0 #if year_sep is None else 2*(int(year_sep) - int(CCS.year_separation.columns[0]))
             self.draw_time_development(labels = ['green', 'non-green'],
                                        colors = ['C2', 'C1'],
                                        means = [member_mean, nonmember_mean],
@@ -442,7 +447,9 @@ class CitationCurveSet():
                                        xlabel = "Patent age",
                                        #xlabel = "Patent age in years",
                                        ylabel = "# Citations",
-                                       outputfilename = outputfilename)
+                                       outputfilename = outputfilename,
+                                       xlimits = [1976, 2018],
+                                       skip_last_periods = skip_last_periods)
         
         returndict = {"member_mean": member_mean, 
                       "nonmember_mean": nonmember_mean, 
@@ -456,31 +463,43 @@ class CitationCurveSet():
                       "nonmember_low": nonmember_low}
         return returndict
 
-    def draw_time_development(self, labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename):
+    def draw_time_development(self, labels, colors, means, medians, iqr_high, iqr_low, xs, xlabel, ylabel, outputfilename, xlimits=None, skip_last_periods=0):
         """Function to draw time development curves with mean, median, IQR
             Arguments:
-                labels: list of str         - curve labels
-                colors: list of str         - curve colors
-                means: list of 1-d numpy    - mean time series
-                medians: list of 1-d numpy  - median time series
-                iqr_high:                   - upper end of interquantile range time series
-                iqr_low:                    - lower end of interquantile range time series
-                xs: 1-d numpy               - times (x-axis value series)
-                xlabel: str                 - X axis label
-                ylabel: str                 - Y axis label
-                outputfilename: str         - output file name
+                labels: list of str                     - curve labels
+                colors: list of str                     - curve colors
+                means: list of 1-d numpy                - mean time series
+                medians: list of 1-d numpy              - median time series
+                iqr_high:                               - upper end of interquantile range time series
+                iqr_low:                                - lower end of interquantile range time series
+                xs: 1-d numpy                           - times (x-axis value series)
+                xlabel: str                             - X axis label
+                ylabel: str                             - Y axis label
+                outputfilename: str                     - output file name
+                xlimuts: None or list of int (len: 2)   -
+                skip_last_periods: int                  - 
             Returns None.
             """
         assert len(labels) == len(colors) == len(means) == len(medians) == len (iqr_high) == len(iqr_low)
         print("Drawing...")
         fig = plt.figure()
         ax0 = fig.add_subplot(111)
+
+        last = len(xs) - skip_last_periods
+        xs = xs.astype(np.float64)
+        if xlimits is None:
+            xlimits = [xs[0], xs[-1]]
+        
         for i in range(len(labels)):
-            ax0.fill_between(xs, iqr_low[i], iqr_high[i], facecolor=colors[i], alpha=0.25)
-            ax0.plot(xs, medians[i], color=colors[i], label=labels[i])
-            ax0.plot(xs, means[i], dashes=[3, 3], color=colors[i])
+            try:
+                ax0.fill_between(xs[:last], iqr_low[i][:last], iqr_high[i][:last], facecolor=colors[i], alpha=0.25)
+            except:
+                pdb.set_trace()
+            ax0.plot(xs[:last], medians[i][:last], color=colors[i], label=labels[i])
+            ax0.plot(xs[:last], means[i][:last], dashes=[3, 3], color=colors[i])
         ax0.set_ylabel(ylabel)
         ax0.set_xlabel(xlabel)
+        ax0.set_xlim(xlimits)
         ax0.legend(loc='best')
         plt.savefig(outputfilename)
         #plt.show()
