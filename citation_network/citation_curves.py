@@ -8,6 +8,7 @@ import pdb
 import numpy as np
 import pandas as pd
 import os
+import argparse
 import matplotlib
 import scipy.sparse as sp
 from matplotlib import gridspec
@@ -700,6 +701,14 @@ class CitationCurveSet():
             
 
 if __name__ == "__main__":
+    
+    """handle command line arguments"""
+    parser = argparse.ArgumentParser(description='Citation curve plot generator')
+    parser.add_argument("-l", "--lagdistributions", action="store_true", help="Plotting by time lag")
+    parser.add_argument("-S", "--highlevelstatistics", action="store_true", help="Plotting of high level statistics, numbers per category etc.")
+    parser.add_argument("-f", "--fixedtimelags", action="store_true", help="Ploting for fixed time lags by year")
+    args = parser.parse_args()
+
     for vol in [False, True]:
         print("Commencing voluntary={0}...".format(vol))
         """prepare citation curves and save"""
@@ -711,17 +720,24 @@ if __name__ == "__main__":
         CCS.populate_green_separation()
         
         """visualize sares"""
-        #CCS.draw_shares()
+        if args.highlevelstatistics:
+            CCS.draw_shares()
         
         """draw central moments and dispersion for green and brown crossectional ensembles"""
-        for separ in reversed(CCS.green_separation.columns):                      #TODO: getter method instead of accessing class attribute?
-            CCS.draw_citation_curve(separ)
-            for class_separ in CCS.class_separation.columns:            #TODO: getter method instead of accessing class attribute?
-                CCS.draw_citation_curve(separ, class_sep=class_separ)
-            for year_separ in CCS.year_separation.columns:              #TODO: getter method instead of accessing class attribute?
-                CCS.draw_citation_curve(separ, year_sep=year_separ)
+        if args.lagdistributions:
+            for separ in reversed(CCS.green_separation.columns):            #TODO: getter method instead of accessing class attribute?
+                CCS.draw_citation_curve(separ)
+                for class_separ in CCS.class_separation.columns:            #TODO: getter method instead of accessing class attribute?
+                    CCS.draw_citation_curve(separ, class_sep=class_separ)
+                for year_separ in CCS.year_separation.columns:              #TODO: getter method instead of accessing class attribute?
+                    CCS.draw_citation_curve(separ, year_sep=year_separ)
 
+        if args.fixedtimelags:
+            for separ in reversed(CCS.green_separation.columns):            #TODO: getter method instead of accessing class attribute?
+                CCS.draw_x_year_curve(separ, [5, 10])
+                for class_separ in CCS.class_separation.columns:            #TODO: getter method instead of accessing class attribute?
+                    CCS.draw_x_year_curve(separ, [5, 10], class_sep=class_separ)
+        
+        
     """Exit"""
     exit(0)
-
-
