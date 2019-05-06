@@ -339,8 +339,6 @@ class CitationCurveSet():
         
         years_inapplicable = [[] for lag in lags]
         for j, year in enumerate(years): 
-            #curves2 = self.draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
-            #                    quantile_low=quantile_low, quantile_high=quantile_high)
             curves = self.draw_citation_curve(criterion, do_plot=False, class_sep=class_sep, year_sep=year, 
                                 quantile_low=quantile_low, quantile_high=quantile_high, xs=np.asarray(lags))
             
@@ -398,8 +396,7 @@ class CitationCurveSet():
                                                          members and nonmembers."""
         print("Computing graphs for " + criterion + " class " + str(class_sep) + " year " + str(year_sep))
         if xs is None:
-            xs = np.arange(0, self.maxlen, 150)
-            #xs = np.asarray([np.int64(np.round(x)) for x in np.arange(0,7000,365.25/2.)])      # half year steps
+            xs = np.asarray([np.int64(np.round(x)) for x in np.arange(0, self.maxlen, 365.25/2.)])      # half year steps
         mseries = {}
         tlens = {}
         
@@ -435,20 +432,17 @@ class CitationCurveSet():
                 outputfilename = "comp_citations_by_age_" + criterion_name + "_voluntaryOnly.pdf"
             else:
                 outputfilename = "comp_citations_by_age_" + criterion_name + ".pdf"
-            skip_last_periods = 0 #if year_sep is None else 2*(int(year_sep) - int(CCS.year_separation.columns[0]))
+            skip_last_periods = 0 if year_sep is None else 2*(int(year_sep) - int(CCS.year_separation.columns[0]))
             self.draw_time_development(labels = ['green', 'non-green'],
                                        colors = ['C2', 'C1'],
                                        means = [member_mean, nonmember_mean],
                                        medians = [member_median, nonmember_median],
                                        iqr_high = [member_high, nonmember_high],
                                        iqr_low = [member_low, nonmember_low],
-                                       xs = xs,
-                                       #xs = np.round(xs/365.25, 2),
-                                       xlabel = "Patent age",
-                                       #xlabel = "Patent age in years",
+                                       xs = np.round(xs/365.25, 2),
+                                       xlabel = "Patent age in years",
                                        ylabel = "# Citations",
                                        outputfilename = outputfilename,
-                                       xlimits = [1976, 2018],
                                        skip_last_periods = skip_last_periods)
         
         returndict = {"member_mean": member_mean, 
