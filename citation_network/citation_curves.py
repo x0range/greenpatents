@@ -564,6 +564,7 @@ class CitationCurveSet():
         green_by_class_relative2 = {}
         nongreen_by_class_relative = {}
         dfs = {}
+        dfs2 = {}
         cats_class = CCS.class_separation.columns
         cats_year = CCS.year_separation.columns
         for separ in self.green_separation.columns:
@@ -654,14 +655,15 @@ class CitationCurveSet():
             plt.savefig(plotfilename)
             
             """heatmap plot"""
+            dfs2[separ] = dfs[separ].drop(["2017", "2018"], axis=1)
             plotfilename = "Shares_by_both_" + separ + series_filename_postfix + ".pdf"
             plot_title = "Shares of green patents by year and class - " + separ
             
             plt.figure()
-            plt.pcolor(dfs[separ])
-            xlabels = [cat if i//5==i/5. else "" for i, cat in enumerate(dfs[separ].columns)]
-            plt.yticks(np.arange(0.5, len(dfs[separ].index), 1), dfs[separ].index)
-            plt.xticks(np.arange(0.5, len(dfs[separ].columns), 1), xlabels)
+            plt.pcolor(dfs2[separ])
+            xlabels = [cat if i//5==i/5. else "" for i, cat in enumerate(dfs2[separ].columns)]
+            plt.yticks(np.arange(0.5, len(dfs2[separ].index), 1), dfs2[separ].index)
+            plt.xticks(np.arange(0.5, len(dfs2[separ].columns), 1), xlabels)
             plt.colorbar()
             plt.title(plot_title)
             plt.tight_layout()
@@ -731,7 +733,7 @@ if __name__ == "__main__":
     """handle command line arguments"""
     parser = argparse.ArgumentParser(description='Citation curve plot generator')
     parser.add_argument("-l", "--lagdistributions", action="store_true", help="Plotting by time lag")
-    parser.add_argument("-S", "--highlevelstatistics", action="store_true", help="Plotting of high level statistics, numbers per category etc.")
+    parser.add_argument("-s", "--highlevelstatistics", action="store_true", help="Plotting of high level statistics, numbers per category etc.")
     parser.add_argument("-f", "--fixedtimelags", action="store_true", help="Ploting for fixed time lags by year")
     args = parser.parse_args()
 
