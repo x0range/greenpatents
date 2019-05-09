@@ -5,9 +5,14 @@
 
 (todo)
 
+# Requirements
+
+Python 3.7.1+
+Packages as stated in ```requirements.txt```
+
 # Install Dependencies
 
-(todo)
+```pip3 install -r requirements.txt```
 
 # Date sources
 
@@ -21,7 +26,8 @@ We could add a bash script, but experience shows that the entire proces is takin
 
 Run in this order:
 
-```## Obtain patent text
+```
+## Obtain patent fulltexts and parse
 
 python3 download_and_parse/get_uspto_titles_and_abstracts.py
 
