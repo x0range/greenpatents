@@ -1,0 +1,8 @@
+# Pseudo search pattern file for Envtech: Codes that complementary to E03 indicate greenness (i.e. if E03 is also present)
+F17D    5/02
+F16L   55/16
+G01M    3/08
+G01M    3/14
+G01M    3/18
+G01M    3/22
+G01M    3/28

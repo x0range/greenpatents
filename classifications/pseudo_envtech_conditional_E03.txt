@@ -1,0 +1,2 @@
+# Pseudo search pattern file for Envtech: E03 codes complementary to others for indicating greenness (see pseudo_envtech_conditional_complementary_E03.txt)
+E03

@@ -1,8 +1,8 @@
 """Script to parse CPC classification codes for all patents starting 1976.
-   The script reads the classification code files US_Grant_CPC_MCF_Text_2018-08-01.zip
-   from USPTO as well as search pattern files for green technologies:
+   The script reads the classification code files http://data.patentsview.org/20190312/download/cpc_current.tsv.zip
+   from USPTO/patentsview as well as search pattern files for green technologies:
     - OECD ENVTECH from file envtech_03.txt
-    - CPC green inventory from file green_inventory_03.txt
+    - IPC green inventory from file green_inventory_03.txt
    The script records:
     - a pandas dataframe indicating membership in sets of green patents as pickle file
     - the classification bipartite network (patents vs. unique classification codes considering
@@ -26,6 +26,15 @@ python3 parse_CPC.py --splitCPCfile
 python3 parse_CPC.py --parse --chunk i # for i in 0-19 in parallel in different terminals
 python3 parse_CPC.py --loadchunks
 python3 parse_CPC.py --greenness
+
+NOTE: 
+A problem with this: the patentsview file has only 6.25M patents. The other CPC records at USPTO on
+https://bulkdata.uspto.gov/data/patent/classification/cpc/ have almost 10M. Maybe we should use these 
+instead. They are parsed by parse_CPC2.py. 
+
+It also has ~0.17M that are apparently not included in the USPTO CPC records on 
+https://bulkdata.uspto.gov/data/patent/classification/cpc/
+We could merge those in.
 
 """
 
@@ -194,9 +203,11 @@ class ClassificationAndGreennessRecord():
                 self.classificationmatrix[level][pat_idx, class_idx] = 1
         print("")
         
-    def check_greenness2(self):
+    def check_greenness2(self, start=0, stop=np.iinfo(np.intc).max):
         """Method to find green patents based in the subgroup level classification matrix. Records this in pandas df.
-            Arguments None
+            Arguments 
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
             Returns: None"""
         """Obtain 3 lists of Envtech matrix columns"""
         """Single code"""
@@ -224,8 +235,9 @@ class ClassificationAndGreennessRecord():
         """Enter results in self.pddf data frame"""
         assert len(green_Envtech) == len(green_IPCGI) == len(self.patlist)
         for pat_idx, patID in enumerate(self.patlist):
-            print("\rCheck greenness {0:10d}".format(pat_idx), end="")
-            self.pddf.loc[patID] = [green_Envtech[pat_idx], green_IPCGI[pat_idx]]
+            if start <= pat_idx < stop:
+                print("\rCheck greenness {0:10d}".format(pat_idx), end="")
+                self.pddf.loc[patID] = [green_Envtech[pat_idx], green_IPCGI[pat_idx]]
         print("")
         
     def classification_matrix_sum_by_indices(self, col_array, level='subgroup'):
@@ -258,6 +270,55 @@ class ClassificationAndGreennessRecord():
             #self.search_file(fname)
             self.search_CPC_file(fname)
     
+    def save_partial_greenness_dataframe(self, start, stop):
+        """Method to save the current (partial, incomplete) self.pddf data frame. This is useful when compiling
+            the data frame in several instances of the script run in parallel. The filename includes the patent index
+            numbers that were parsed.
+            Arguments
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
+            Returns None"""
+        self.pddf.to_pickle("patent_greenness_based_on_CPC_lines_" + str(start) + "_" + str(stop) + ".pkl")
+
+    def combine_and_save_greenness_dataframe(self):
+        """Method to save the current (partial, incomplete) self.pddf data frame. This is useful when compiling
+            the data frame in several instances of the script run in parallel. The filename includes the patent index
+            numbers that were parsed.
+            Arguments
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
+            Returns None"""
+        partial_df_files = glob.glob("patent_greenness_based_on_CPC_lines_*.pkl")
+        partial_df_files = [{"filename": partial_df_files[i], 
+                    "start": int(partial_df_files[i].split("_")[6]), 
+                    "stop": int(partial_df_files[i].split(".")[0].split("_")[-1]) \
+                    } for i in range(len(partial_df_files))]
+        partial_df_files = sorted(partial_df_files, key = lambda i: (i['start'], i['stop'])) 
+        all_good = True
+        for i in range(1, len(partial_df_files)):
+            if partial_df_files[i]["start"] == partial_df_files[i-1]["stop"]:
+                pass            # all good
+            elif partial_df_files[i]["start"] > partial_df_files[i-1]["stop"]:
+                all_good = False
+                print("Warning: Lines missing {}-{}".format(partial_df_files[i-1]["stop"], \
+                                                        partial_df_files[i]["start"] - 1))
+            elif partial_df_files[i]["start"] < partial_df_files[i-1]["stop"]:
+                print("Warning: Lines duplicated {}-{}".format(partial_df_files[i]["start"] - 1, \
+                                                        partial_df_files[i-1]["stop"]))
+        assert all_good, "Error: lines missing."
+        for pdfile in partial_df_files:
+            df = pd.read_pickle(pdfile["filename"])
+            overlapping_indices = self.pddf.index.intersection(df.index)
+            if len(overlapping_indices) > 0:
+                print("Overlapping patent keys found: {}".format(len(overlapping_indices)))
+                for idx in overlapping_indices:
+                    assert (self.pddf.loc[idx] == df.loc[idx]).all(), "Error: Mismatched entries for {}".format(idx)
+                self.pddf = pd.concat([self.pddf, df])
+                self.pddf = self.pddf[~self.pddf.index.duplicated()]
+            else:
+                self.pddf = pd.concat([self.pddf, df])
+        self.pddf.to_pickle("patent_greenness_based_on_CPC.pkl")
+
     def save(self):
         """Method to save the current state of data frame, matrixes and node lists.
             No Arguments
@@ -436,15 +497,29 @@ if __name__ == "__main__":
         python3 parse_CPC.py --parse --chunk i # for i in 0-19 in parallel in different terminals
         python3 parse_CPC.py --loadchunks
         python3 parse_CPC.py --greenness
+    
+    or, alternatively:
+    
+        python3 parse_CPC.py --setup
+        python3 parse_CPC.py --parse
+        python3 parse_CPC.py --loadchunks
+        python3 parse_CPC.py --greennesslines i j # for each range of patents indices i-j (should be 6.25M in total)
+        python3 parse_CPC.py --combinegreennessdataframes
+    
     """, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--setup", action="store_true", help="Do the initial setup of matrices, data structures.")
-    parser.add_argument("--chunk", type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, \
-                                        18, 19], help="Chunk for inputfile parsing. Use full raw data if not given.")
     parser.add_argument("--parse", action="store_true", help="Parse classifications.")
     parser.add_argument("--greenness", action="store_true", help="Check for greenness and save data frame.")
+    parser.add_argument("--splitCPCfile", action="store_true", help="Split CPC source file into 20 chunks to be " \
+                                                                    "processed separately using --parse --chunk XX.")
+    parser.add_argument("--chunk", type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, \
+                                        18, 19], help="Chunk for inputfile parsing. Use full raw data if not given.")
     parser.add_argument("--loadchunks", action="store_true", help="Load and combine chunks after parsing by chunk.")
-    parser.add_argument("--splitCPCfile", action="store_true", help="Load and combine chunks after parsing by chunk.")
-
+    parser.add_argument("--greennesslines", nargs=2, type=int, help="Check for greenness between line X and line Y " \
+                                                                    "only and save partial data frame.")
+    parser.add_argument("--combineDF", action="store_true", help="Load and combine partial greenness data frames " \
+                                                                    "after checking by line ranges.")
+    
     args = parser.parse_args()
     
     """Catch inadmissible and critical argument combinations"""
@@ -474,7 +549,7 @@ if __name__ == "__main__":
         GR = ClassificationAndGreennessRecord(setup=False, loadchunks=False, chunk_idx=args.chunk)
     else:
         GR = ClassificationAndGreennessRecord(setup=False, loadchunks=False, chunk_idx=None)
-    if args.setup or args.parse or args.loadchunks or args.greenness:
+    if args.setup or args.parse or args.loadchunks or args.greenness or args.greennesslines:
         GR.reload()
         print("Setup is done.")
     if args.parse:
@@ -496,3 +571,10 @@ if __name__ == "__main__":
         GR.check_greenness2()
         print("Done. Saving.")
         GR.save()
+    if args.greennesslines:
+        print("Running greenness check ...")
+        GR.check_greenness2(args.greennesslines[0], args.greennesslines[1])
+        print("Done. Saving.")
+        GR.save_partial_greenness_dataframe(args.greennesslines[0], args.greennesslines[1])
+    if args.combineDF:
+        GR.combine_and_save_greenness_dataframe()

@@ -1,5 +1,5 @@
 """Script to parse IPC classification codes for all patents starting 1976.
-   The script reads the classification code files US_Grant_IPC_MCF_Text_2018-08-01.zip
+   The script reads the classification code files http://data.patentsview.org/20190312/download/ipcr.tsv.zip
    from USPTO as well as search pattern files for green technologies:
     - OECD ENVTECH from file envtech_03.txt
     - IPC green inventory from file green_inventory_03.txt
@@ -13,7 +13,30 @@
     - GreenInventory as search pattern class.
     - GreenRecord as record class
 
+How to run:
+
+python3 parse_IPC.py --setup
+python3 parse_IPC.py --parse
+python3 parse_IPC.py --greenness
+
+OR:
+
+python3 parse_IPC.py --setup
+python3 parse_IPC.py --splitIPCfile
+python3 parse_IPC.py --parse --chunk i # for i in 0-19 in parallel in different terminals
+python3 parse_IPC.py --loadchunks
+python3 parse_IPC.py --greenness
+
+OR:
+
+python3 parse_IPC.py --setup
+python3 parse_IPC.py --parse
+python3 parse_IPC.py --loadchunks
+python3 parse_IPC.py --greennesslines i j # for each range of patents indices i-j (should be 6.25M in total)
+python3 parse_IPC.py --combinegreennessdataframes
+
 """
+
 
 """inport modules"""
 import numpy as np
@@ -25,6 +48,9 @@ import glob
 import pdb
 import sys
 import time
+import os.path
+import subprocess
+import argparse
 
 """Class definitions"""
 """Green patents search pattern class. Can parse and apply OECD ENvtech and IPC green inventory 
@@ -37,6 +63,14 @@ class GreenInventory:
             Returns: Class instance"""
         self.name = patternsfile
         self.read_search_patterns(patternsfile)
+        self.strip_space_from_search_patterns()
+        
+    def strip_space_from_search_patterns(self):
+        """Method to strip space from between group ID and subgroup ID as IPC does not use that.
+            Arguments: None
+            Returns: None."""
+        for i, pattern in enumerate(self.single_patterns):
+            self.single_patterns[i] = pattern.replace(" ", "")
         
     def read_search_patterns(self, patternsfile):
         """Method to read search patterns from file
@@ -72,44 +106,6 @@ class GreenInventory:
             else:                                   #find simple patterns
                 self.single_patterns.append(line)
     
-    def __match_combined(self, class_strings):
-        """Method to check if a list of class strings matches a green technology as defined
-           in combined strings that all have to match.
-            Arguments:
-                class_strings - list of strings - list of classification codes
-            Returns: bool - patent is a green technology"""
-        
-        """For each pattern cp, if every element is found, return True"""
-        for cp in self.combined_patterns:
-            cp_found = True
-            for pattern_element in cp:
-                if not any(pattern_element in st for st in class_strings):
-                    cp_found = False
-            if cp_found:
-                return True
-        """If none of the patterns matched, return False"""
-        return False
-            
-    def __match_single(self, class_string):
-        """Method to check if a class string matches a green technology as defined as single string.
-            Arguments:
-                class_string - string - classification code
-            Returns: bool - patent is a green technology"""
-        if any(st in class_string for st in self.single_patterns):
-            return True
-        else:
-            return False
-
-    def __match_any(self, class_strings):
-        """Method to check if a list of class strings matches a green technology as defined as single string.
-            Arguments:
-                class_strings - list of strings - classification codes
-            Returns: bool - patent is a green technology"""
-        if any(st in cs for st in self.single_patterns for cs in class_strings):
-            return True
-        else:
-            return self.match_combined(class_strings)
-
     def filter_matching(self, class_strings):
         """Method to filter all strings in a list that are matched by the green inventory.
             Arguments:
@@ -117,62 +113,54 @@ class GreenInventory:
             Returns: list of int - indices of matched strings"""
         filtered = []
         for i, cs in enumerate(class_strings):
+            #if "F01" in cs:
+            #    print(cs)
+            #    pdb.set_trace()
             if any(st in cs for st in self.single_patterns):
                 filtered.append(i)
-            #    print(cs)
+            #    if "H01" in cs:
+            #        print(cs)
             #else:
-            #    print(cs, " NOT PRESENT")
+            #    if "H01" in cs:
+            #        print(cs, " NOT PRESENT")
         return np.array(filtered)
 
 """Green patents record class. Can parse classification files, apply search patterns and save records"""
-class GreennessRecord():
-    def __init__(self):
+class ClassificationAndGreennessRecord():
+    def __init__(self, setup=False, loadchunks=False, chunk_idx=None):
         """Constructor method.
-           Assumes that the classification files from USPTO US_Grant_IPC_MCF_Text_2018-08-01.zip are unpacked
-            in the current working directory, i.e. the individual files are "./data/20181127/bulk-downloads/ipcr.tsv"
-            Arguments: None
+           Assumes that the classification files from USPTO/patentsview ipcr.tsv.zip is unpacked
+            in the current working directory, i.e. the individual file is "data/20181127/bulk-downloads/ipcr.tsv"
+            Arguments: 
+                loadchunks - bool - Should this run load previously computed chunks (ergo, no setup, parsing,
+                                    since that must already be done)?
+                chunk_idx  - int  - Chunk index number to be parsed. Affects classfilelist definition.
+                setup      - bool - Should matrices etc be newly set up (empty)?
             Returns class instance."""
         
         """Prepare variables"""
+        self.chunk_idx = chunk_idx
         self.levels_list = ['section', 'class', 'subclass', 'maingroup', 'subgroup']
         self.patlist = None
         self.classlist = {}
         self.classificationmatrix = {}
+        self.pddf = pd.DataFrame(columns=['envtech', 'IPCGI'])  #greenness data frame. Will be overwritten when created.
+        """Prepare search patterns"""
+        #print("Preparing search patterns")
+        self.GIenvtech = GreenInventory("envtech_03.txt")
+        self.GI_IPC = GreenInventory("green_inventory_03.txt")
         
         """Identify classification files"""
         self.classfilelist = ['./data/20181127/bulk-downloads/ipcr.tsv']
+        if loadchunks:
+            self.classfilelist = None               # Parsing has to be completed in this case
+        if self.chunk_idx is not None:
+            self.classfilelist = ['./ipcr_{}.tsv'.format(chunk_idx)]
         """Prepare matrices"""
-        print("Preparing matrices")
-        self.prepare_lists_and_matrices(self.classfilelist)
-            
-        """Prepare search patterns"""
-        print("Preparing search patterns")
-        self.GIenvtech = GreenInventory("envtech_03.txt")
-        self.GI_IPC = GreenInventory("green_inventory_03.txt")
-        self.pddf = pd.DataFrame(columns=['envtech', 'IPCGI'])  #greenness data frame
-        
-        
-        print("All set up.")
-        
-    def __finalize_greenness_record(self, patID, is_green_ENVTECH, is_green_IPCGI, class_strings):
-        """DELETE THIS
-            Method to affect final checks on green pattern matching (with combined patterns of several
-           classification strings) and to record the result in data frame.
-            Arguments:
-                patID - string - patent ID
-                is_green_ENVTECH - bool - OECD envtech green patterns found so far
-                is_green_IPCGI - bool - IPC green inventory patterns found so far
-                class_strings - list of strings - list of classification codes.
-            Returns None"""
-        
-        """Check combined patterns"""
-        if len(class_strings) > 1: 
-            if not is_green_ENVTECH:
-                is_green_ENVTECH = self.GIenvtech.match_combined(class_strings)
-            if not is_green_IPCGI:
-                is_green_IPCGI = self.GI_IPC.match_combined(class_strings)
-        """Record greenness in data frame"""
-        self.pddf.loc[patID] = [is_green_ENVTECH, is_green_IPCGI]
+        if setup:
+            print("Preparing matrices")
+            self.prepare_lists_and_matrices(self.classfilelist)
+        #print("All set up.")
 
     def parse_line(self, line):
         """Method to parse one lingle line from the classification file
@@ -190,12 +178,20 @@ class GreennessRecord():
         
         if len(class_code_raw[3]) == 1:
             class_code_raw[3] = '0' + class_code_raw[3]
+        while len(class_code_raw[5]) > 1 and class_code_raw[5][0] == "0":
+            class_code_raw[5] = class_code_raw[5][1:]
+        if len(class_code_raw[6]) == 1:
+            class_code_raw[6] = '0' + class_code_raw[6]
         class_code = {}
         class_code['section'] = class_code_raw[2]
         class_code['class'] = class_code['section'] + class_code_raw[3]
         class_code['subclass'] = class_code['class'] + class_code_raw[4]
-        class_code['maingroup'] = class_code['subclass'] + ' {0:>3s}'.format(class_code_raw[5])
+        #class_code['maingroup'] = class_code['subclass'] + ' {0:>4s}'.format(class_code_raw[5])
+        class_code['maingroup'] = class_code['subclass'] + class_code_raw[5]
         class_code['subgroup'] = class_code['maingroup'] + '/' + class_code_raw[6].strip()
+        #if patID == "4205637":
+        #    print(patID, class_code)
+        #    pdb.set_trace()
         return patID, class_code
     
     def search_IPC_file(self, classificationfile):
@@ -207,7 +203,6 @@ class GreennessRecord():
         for line in line_generator_from_file(classificationfile):
             i += 1
             print("\rSearch IPC file {0:10d}".format(i), end="")
-
             """read class codes and patent ID"""
             patID, class_code = self.parse_line(line)
             
@@ -219,32 +214,11 @@ class GreennessRecord():
                 self.classificationmatrix[level][pat_idx, class_idx] = 1
         print("")
         
-    def __check_greenness(self):
-        """cycle through patents"""
-        for pat_idx, patID in enumerate(self.patlist):
-            print("\rCheck greenness {0:10d}".format(pat_idx), end="")
-            #print("Check greenness {0:10d}".format(pat_idx))
-            #t0 = time.time()
-            """identify class strings"""
-            class_code_idxs = scipy.sparse.find(self.classificationmatrix['subgroup'][pat_idx])[1]
-            #t1 = time.time()
-            class_codes = self.classlist['subgroup'][class_code_idxs]
-            #t2 = time.time()
-            """identify greenness"""
-            is_green_ENVTECH = self.GIenvtech.match_any(class_codes)
-            #t3 = time.time()
-            is_green_IPCGI = self.GI_IPC.match_any(class_codes)
-            #t4 = time.time()
-            """record greenness"""
-            self.pddf.loc[patID] = [is_green_ENVTECH, is_green_IPCGI]
-            #t5 = time.time()
-            #print(t1-t0, t2-t1, t3-t2, t4-t3, t5-t4)
-        print("")
-    
-    
-    def check_greenness2(self):
+    def check_greenness2(self, start=0, stop=np.iinfo(np.intc).max):
         """Method to find green patents based in the subgroup level classification matrix. Records this in pandas df.
-            Arguments None
+            Arguments 
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
             Returns: None"""
         """Obtain 3 lists of Envtech matrix columns"""
         """Single code"""
@@ -256,7 +230,8 @@ class GreennessRecord():
         pseudoGIenvtech_E03 = GreenInventory("pseudo_envtech_conditional_E03.txt")
         col_array_Envtech_E03_complement = pseudoGIenvtech.filter_matching(self.classlist['subgroup'])
         col_array_Envtech_E03 = pseudoGIenvtech_E03.filter_matching(self.classlist['subgroup'])
-        green_Envtech_E03_complement = self.classification_matrix_sum_by_indices(col_array_Envtech_E03_complement, level='subgroup')
+        green_Envtech_E03_complement = self.classification_matrix_sum_by_indices(col_array_Envtech_E03_complement, \
+                                                                                                    level='subgroup')
         green_Envtech_E03 = self.classification_matrix_sum_by_indices(col_array_Envtech_E03, level='subgroup')
         
         """Perform computation to combine the 3 lists"""
@@ -271,8 +246,12 @@ class GreennessRecord():
         """Enter results in self.pddf data frame"""
         assert len(green_Envtech) == len(green_IPCGI) == len(self.patlist)
         for pat_idx, patID in enumerate(self.patlist):
-            print("\rCheck greenness {0:10d}".format(pat_idx), end="")
-            self.pddf.loc[patID] = [green_Envtech[pat_idx], green_IPCGI[pat_idx]]
+            #print(patID)
+            if patID == "4205637":
+                pdb.set_trace()
+            if start <= pat_idx < stop:
+                print("\rCheck greenness {0:10d}".format(pat_idx), end="")
+                self.pddf.loc[patID] = [green_Envtech[pat_idx], green_IPCGI[pat_idx]]
         print("")
         
     def classification_matrix_sum_by_indices(self, col_array, level='subgroup'):
@@ -291,7 +270,7 @@ class GreennessRecord():
             return np.zeros(len(self.patlist), 'int8')
         
     
-    def run(self):
+    def run_search(self):
         """Method to parse all classification files.
             No Arguments
             Returns None"""
@@ -304,9 +283,56 @@ class GreennessRecord():
             print("{0:4d}".format(n), end="\r")
             #self.search_file(fname)
             self.search_IPC_file(fname)
-            self.check_greenness2()
-            
     
+    def save_partial_greenness_dataframe(self, start, stop):
+        """Method to save the current (partial, incomplete) self.pddf data frame. This is useful when compiling
+            the data frame in several instances of the script run in parallel. The filename includes the patent index
+            numbers that were parsed.
+            Arguments
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
+            Returns None"""
+        self.pddf.to_pickle("patent_greenness_based_on_IPC_lines_" + str(start) + "_" + str(stop) + ".pkl")
+
+    def combine_and_save_greenness_dataframe(self):
+        """Method to save the current (partial, incomplete) self.pddf data frame. This is useful when compiling
+            the data frame in several instances of the script run in parallel. The filename includes the patent index
+            numbers that were parsed.
+            Arguments
+                start - int - Index of first to be parsed
+                stop - int - 1 + Index of last line to be parsed 
+            Returns None"""
+        partial_df_files = glob.glob("patent_greenness_based_on_IPC_lines_*.pkl")
+        partial_df_files = [{"filename": partial_df_files[i], 
+                    "start": int(partial_df_files[i].split("_")[6]), 
+                    "stop": int(partial_df_files[i].split(".")[0].split("_")[-1]) \
+                    } for i in range(len(partial_df_files))]
+        partial_df_files = sorted(partial_df_files, key = lambda i: (i['start'], i['stop'])) 
+        all_good = True
+        for i in range(1, len(partial_df_files)):
+            if partial_df_files[i]["start"] == partial_df_files[i-1]["stop"]:
+                pass            # all good
+            elif partial_df_files[i]["start"] > partial_df_files[i-1]["stop"]:
+                all_good = False
+                print("Warning: Lines missing {}-{}".format(partial_df_files[i-1]["stop"], \
+                                                        partial_df_files[i]["start"] - 1))
+            elif partial_df_files[i]["start"] < partial_df_files[i-1]["stop"]:
+                print("Warning: Lines duplicated {}-{}".format(partial_df_files[i]["start"] - 1, \
+                                                        partial_df_files[i-1]["stop"]))
+        assert all_good, "Error: lines missing."
+        for pdfile in partial_df_files:
+            df = pd.read_pickle(pdfile["filename"])
+            overlapping_indices = self.pddf.index.intersection(df.index)
+            if len(overlapping_indices) > 0:
+                print("Overlapping patent keys found: {}".format(len(overlapping_indices)))
+                for idx in overlapping_indices:
+                    assert (self.pddf.loc[idx] == df.loc[idx]).all(), "Error: Mismatched entries for {}".format(idx)
+                self.pddf = pd.concat([self.pddf, df])
+                self.pddf = self.pddf[~self.pddf.index.duplicated()]
+            else:
+                self.pddf = pd.concat([self.pddf, df])
+        self.pddf.to_pickle("patent_greenness_based_on_IPC.pkl")
+
     def save(self):
         """Method to save the current state of data frame, matrixes and node lists.
             No Arguments
@@ -315,15 +341,21 @@ class GreennessRecord():
         self.pddf.to_pickle("patent_greenness_based_on_IPC.pkl")
         
         """save classification matrices"""
-        matrix_save_names = {level: "patent_classification_matrix_level_" + str(level) + ".npz" for level in self.levels_list}
-        classlist_save_names = {level: "patent_classification_codes_level_" + str(level) + ".pkl" for level in self.levels_list}
-        patentID_save_name = "patent_codes.pkl"
-        print("Saving node keys")
-        with open(patentID_save_name, "wb") as wfile:
-            pickle.dump(self.patlist, wfile, protocol=pickle.HIGHEST_PROTOCOL)
-        for level in self.levels_list:
-            with open(classlist_save_names[level], "wb") as wfile:
-                pickle.dump(self.classlist[level], wfile, protocol=pickle.HIGHEST_PROTOCOL)
+        if self.chunk_idx is not None:
+            matrix_save_names = {level: "patent_classification_matrix_level_" + str(level) + "_chunk_" + \
+                                                str(self.chunk_idx) + ".npz" for level in self.levels_list}        
+        else:
+            matrix_save_names = {level: "patent_classification_matrix_level_" + str(level) + ".npz" \
+                                                                            for level in self.levels_list}
+            classlist_save_names = {level: "patent_classification_codes_level_" + str(level) + ".pkl" \
+                                                                            for level in self.levels_list}
+            patentID_save_name = "patent_codes.pkl"
+            print("Saving node keys")
+            with open(patentID_save_name, "wb") as wfile:
+                pickle.dump(self.patlist, wfile, protocol=pickle.HIGHEST_PROTOCOL)
+            for level in self.levels_list:
+                with open(classlist_save_names[level], "wb") as wfile:
+                    pickle.dump(self.classlist[level], wfile, protocol=pickle.HIGHEST_PROTOCOL)
         for level in self.levels_list:
             print("Transforming matrix")
             save_mtx = self.classificationmatrix[level].tocsr()
@@ -339,8 +371,10 @@ class GreennessRecord():
         self.pddf = pd.read_pickle("patent_greenness_based_on_IPC.pkl")
         
         """Read classification matrices"""
-        matrix_save_names = {level: "patent_classification_matrix_level_" + str(level) + ".npz" for level in self.levels_list}
-        classlist_save_names = {level: "patent_classification_codes_level_" + str(level) + ".pkl" for level in self.levels_list}
+        matrix_save_names = {level: "patent_classification_matrix_level_" + str(level) + ".npz" \
+                                                                                for level in self.levels_list}
+        classlist_save_names = {level: "patent_classification_codes_level_" + str(level) + ".pkl" \
+                                                                                for level in self.levels_list}
         patentID_save_name = "patent_codes.pkl"
         print("Reloading node keys")
         with open(patentID_save_name, "rb") as rfile:
@@ -354,8 +388,6 @@ class GreennessRecord():
             print("Transforming matrix")
             self.classificationmatrix[level] = reloaded_matrix.todok()
             
-            
-        
     def prepare_lists_and_matrices(self, filelist):
         """Methods to identify the complete set of patent IDs and classification codes in order
            to create sparse matrices of the correct size before parsing begins.
@@ -366,14 +398,12 @@ class GreennessRecord():
         """Prepare local variables: dicts of IDs and codes and counters"""
         patdict = {}
         classdict = {item: {} for item in self.levels_list}
-        #classdict_coarse = {}
         pat_idx = 0
         class_idx = {item: 0 for item in self.levels_list}
-        #class_c_idx = 0
         
         """Parse all files"""
         for filename in filelist:
-            i = -1
+            i = 0
             for line in line_generator_from_file(filename):
                 i += 1
                 print("\rPrepare matrices {0:10d}".format(i), end="")
@@ -381,7 +411,7 @@ class GreennessRecord():
                 """Obtain current code and paten ID"""
                 
                 patID, class_code = self.parse_line(line)
-                            
+                
                 """Check if ID and code have been recorded already, otherwise update."""
                 
                 if patdict.get(patID) is None:
@@ -394,25 +424,44 @@ class GreennessRecord():
                         classdict[level][classID] = class_idx
                         class_idx[level] += 1
                 
-                #if classdict.get(classID) is None:
-                #    classdict[classID] = class_idx
-                #    class_idx += 1
-                #
-                #if classdict_coarse.get(classID_coarse) is None:
-                #    classdict_coarse[classID_coarse] = class_c_idx
-                #    class_c_idx += 1
         print("")
         
         """Record lists of uniques IDs and codes"""
         self.patlist = list(patdict.keys())
         for level in self.levels_list:
             self.classlist[level] = np.array(list(classdict[level].keys()))
-        #self.classlist_coarse = list(classdict_coarse.keys())
         
         """Setup sparse matrices"""
         for level in self.levels_list:
             self.classificationmatrix[level] = scipy.sparse.dok_matrix((pat_idx, class_idx[level]), dtype=bool)
         #self.classificationmatrix_coarse = scipy.sparse.dok_matrix((pat_idx, class_c_idx), dtype=bool)
+
+    def collect_chunks(self):
+        """Method to collect and combine all previously computed matrix chunks.
+        Arguments: None.
+        Returns None."""
+        
+        """Assert presence of all matrix files"""
+        filenames = {}
+        for level in self.levels_list:
+            filenames[level] = ["patent_classification_matrix_level_" + str(level) + "_chunk_" + str(i) + ".npz" \
+                                                                                                for i in range(20)]
+            for i in range(len(filenames[level])):
+                assert os.path.exists(filenames[level][i]), "File not found: {}".format(filenames[level][i])
+        
+        """Load and add one by one."""
+        for level in self.levels_list:
+            for i, filename in enumerate(filenames[level]):
+                print("Level {2:10s}; parsing {0} of {1}".format(i, len(filenames[level]), level))
+                pcm = scipy.sparse.load_npz(filename)
+                expected_sum = np.sum(self.classificationmatrix[level]) + np.sum(pcm)
+                self.classificationmatrix[level] = self.classificationmatrix[level] + pcm
+                try:
+                    assert expected_sum == np.sum(self.classificationmatrix[level]), \
+                                    "expected sum does not match actual sum: {0} != {1}".format(expected_sum, 
+                                                                    np.sum(self.classificationmatrix[level]))
+                except:
+                    pass
 
 """Function definitions"""
 
@@ -428,15 +477,118 @@ def line_generator_from_file(filename):
                 line = line.replace("\n", "")
                 yield line
 
-
+def splitIPCfile():
+    """Function for splitting the input class file into 20 chunks to be parsed subsequently.
+       Determines the appropriate file length using UNIX 'wc -l' via python subprocess. Then creates the files
+       with UNIX 'cat filename | head -line| tail -line >> filename' via python os.system().
+        Arguments: None.
+        Returns None."""
+    p = subprocess.Popen(['wc', '-l', 'data/20181127/bulk-downloads/ipcr.tsv'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result, err = p.communicate()
+    assert p.returncode == 0, "Error in counting lines in classfile cpc_current.tsv: {}".format(err)
+    line_num = int(result.strip().split()[0])
+    chunks = np.linspace(0, line_num, 21, dtype=np.int64)
+    stop_idxs = chunks[1:]
+    lens = chunks[1:] - chunks[:-1]
+    for i in range(20):
+        os.system("cat data/20181127/bulk-downloads/ipcr.tsv | head -{0} | tail -{1} >> ipcr_{2}.tsv".format(stop_idxs[i], lens[i], \
+                                                                                                                    i))
 
 """ main entry point """
 
 if __name__ == "__main__":
-        GR = GreennessRecord()
-        GR.save()
-        GR.reload()
-        print("""Setup is done. Running...""")
-        GR.run()
-        GR.save()
+    """Parse terminal arguments"""
+    parser = argparse.ArgumentParser(description="""Patent classification parser.\n    How to run:
+
+        python3 parse_IPC.py --setup
+        python3 parse_IPC.py --parse
+        python3 parse_IPC.py --greenness
+
+    or, alternatively:
+
+        python3 parse_IPC.py --setup
+        python3 parse_IPC.py --splitIPCfile
+        python3 parse_IPC.py --parse --chunk i # for i in 0-19 in parallel in different terminals
+        python3 parse_IPC.py --loadchunks
+        python3 parse_IPC.py --greenness
     
+    or, alternatively:
+    
+        python3 parse_IPC.py --setup
+        python3 parse_IPC.py --parse
+        python3 parse_IPC.py --loadchunks
+        python3 parse_IPC.py --greennesslines i j # for each range of patents indices i-j (should be 6.25M in total)
+        python3 parse_IPC.py --combinegreennessdataframes
+    
+    """, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--setup", action="store_true", help="Do the initial setup of matrices, data structures.")
+    parser.add_argument("--parse", action="store_true", help="Parse classifications.")
+    parser.add_argument("--greenness", action="store_true", help="Check for greenness and save data frame.")
+    parser.add_argument("--splitIPCfile", action="store_true", help="Split IPC source file into 20 chunks to be " \
+                                                                    "processed separately using --parse --chunk XX.")
+    parser.add_argument("--chunk", type=int, choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, \
+                                        18, 19], help="Chunk for inputfile parsing. Use full raw data if not given.")
+    parser.add_argument("--loadchunks", action="store_true", help="Load and combine chunks after parsing by chunk.")
+    parser.add_argument("--greennesslines", nargs=2, type=int, help="Check for greenness between line X and line Y " \
+                                                                    "only and save partial data frame.")
+    parser.add_argument("--combineDF", action="store_true", help="Load and combine partial greenness data frames " \
+                                                                    "after checking by line ranges.")
+    
+    args = parser.parse_args()
+    
+    """Catch inadmissible and critical argument combinations"""
+    assert not (args.parse and args.loadchunks), "Error: Can only load chunks when parsing is completed. Stop."
+    try:
+        assert not ((args.chunk is not None) and (not args.parse)), \
+                                            "Warning: Chunk index is ignored if parse is not set. Continuing..."
+    except:
+        pass
+    assert not ((args.chunk is not None) and args.greenness), \
+                                    "Error: Greenness check can only be done once all chunks are parsed. Stop."
+    
+    """For splitfile, just split the file and exit"""
+    if args.splitIPCfile:
+        print("Separating input file.")
+        splitIPCfile()
+        print("Done. Now you can parse by chunks.")
+        raise SystemExit
+        
+    if args.setup:
+        print("Setup...")
+        GR = ClassificationAndGreennessRecord(setup=True, loadchunks=False, chunk_idx=None)
+        GR.save()
+    elif args.loadchunks:
+        GR = ClassificationAndGreennessRecord(setup=False, loadchunks=True, chunk_idx=None)
+    elif args.chunk is not None:
+        GR = ClassificationAndGreennessRecord(setup=False, loadchunks=False, chunk_idx=args.chunk)
+    else:
+        GR = ClassificationAndGreennessRecord(setup=False, loadchunks=False, chunk_idx=None)
+    if args.setup or args.parse or args.loadchunks or args.greenness or args.greennesslines:
+        GR.reload()
+        print("Setup is done.")
+    if args.parse:
+        print("Running parse. Chunk ", end="")
+        if args.chunk is not None:
+            print("{} ...".format(args.chunk))
+        else:
+            print("ALL\nThis is going to take a very long time.")
+        GR.run_search()
+        print("Done. Saving.")
+        GR.save()
+    if args.loadchunks:
+        print("Collecting chunks ...")
+        GR.collect_chunks()
+        print("Done. Saving.")
+        GR.save()
+    if args.greenness:
+        print("Running greenness check ...")
+        GR.check_greenness2()
+        print("Done. Saving.")
+        GR.save()
+    if args.greennesslines:
+        print("Running greenness check ...")
+        GR.check_greenness2(args.greennesslines[0], args.greennesslines[1])
+        print("Done. Saving.")
+        GR.save_partial_greenness_dataframe(args.greennesslines[0], args.greennesslines[1])
+    if args.combineDF:
+        GR.combine_and_save_greenness_dataframe()
