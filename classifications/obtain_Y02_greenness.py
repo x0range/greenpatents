@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse
 import pickle
+import pdb
 
 
 def obtain_Y02_greenness(df_save_filename, patlist_filename, classificationmatrix_filename, classlist_filename=None):
@@ -53,6 +54,7 @@ def obtain_Y02_greenness(df_save_filename, patlist_filename, classificationmatri
     dfdict = {'PatID': patlist, 'Y_Codes': y02codes_green}
     pddf = pd.DataFrame(dfdict).set_index('PatID')
     
+    pdb.set_trace()
     """save"""
     #pddf.to_pickle("patent_greenness_based_on_CPC_Y_classes_USPTO.pkl")
     pddf.to_pickle(df_save_filename)
