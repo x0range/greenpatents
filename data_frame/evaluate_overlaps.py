@@ -22,7 +22,7 @@ def generate_index_plots(jaccard_indices_all, tversky_indices_all):
         a[cl_idx, 0].legend(loc="best")
         
         f2, a2 = plt.subplots(1, 1, figsize=(5, 4))
-        a2.set_title("Group " + cl + " Jaccard indices")
+        a2.set_title("Class " + cl + " Jaccard indices")
         a2.set_xlabel("Year")
         a2.set_ylabel("Jaccard index")
         a2.plot(year_seq, jaccard_indices_all[cl]["egy"], label="All")
