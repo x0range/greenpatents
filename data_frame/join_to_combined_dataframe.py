@@ -5,10 +5,7 @@ import pdb
 
 def join_all_dfs(filenames, outputfilepickle, outputfilefeather, patent_codes_files):
     colnames = {"detected_green_patents.pkl": "Shapira et al. GI pattern",
-                "patent_greenness_based_on_CPC.pkl": ["envtech_CPC", "IPCGI_CPC"],       # these GIs should not be based on new CPC classes
-                #"patent_greenness_based_on_IPC.pkl": ["envtech", "IPCGI"],               
-                "patent_greenness_based_on_CPC_Y_classes_patstat.pkl": ["Y_Codes"],      # this is more exhaustive
-                "patent_greenness_based_on_CPC_Y_classes_USPTO.pkl": ["Y_Codes_2"],      # 
+                #"patent_greenness_merged.pkl": ["Envtech", "IPCGI", "Y_Codes"],      #have already correct filenames
                 }
     
     dfs = [pd.read_pickle(fn) for fn in filenames]
@@ -18,7 +15,7 @@ def join_all_dfs(filenames, outputfilepickle, outputfilefeather, patent_codes_fi
     for i, df in enumerate(dfs):
         print("parsing {0} of {1}: {2}".format(i+1, len(dfs), filenames[i]))
         merge_direction = 'left' if i>0 else 'right'
-        if filenames[i] in ["patent_greenness_based_on_CPC_all.pkl", "patent_greenness_based_on_CPC_Y_classes_USPTO.pkl"]:     # in this file the indices (patent numbers) have for some reason a leading space character
+        if filenames[i] in ["patent_greenness_merged.pkl", "patent_greenness_based_on_CPC_all.pkl", "patent_greenness_based_on_CPC_Y_classes_USPTO.pkl"]:     # in this file the indices (patent numbers) have for some reason a leading space character
                 df.index = df.index.str.strip() 
         if filenames[i] in ["detected_green_patents.pkl"]:
             colname = colnames["detected_green_patents.pkl"]
@@ -79,12 +76,14 @@ def pd_from_gi_table(df, framename):
 filenames = ["patents_dates_years.pkl",                 # Application and grant dates (2 x pd.datetime, 2 x int)
              "patents_value_kogan.pkl",                 # Kogan et al. value (1 x float)
              "patents_citation_df.pkl",                 # Pageranks and citation counts
+             "patents_lag_citation_counts_df.pkl",      # Lag citation counts 5y, 10y, 20y, 30y, (4x float)
              "patents_table.pkl",                       # Geographic, assignee, etc data
              "detected_green_patents.pkl",              # Green patents detection following Shapira
-             "patent_greenness_based_on_CPC.pkl",       # Green inventory membership (2 x bool)
-             "patent_greenness_based_on_IPC.pkl",       # Green inventory membership (2 x bool)
-             "patent_greenness_based_on_CPC_Y_classes_patstat.pkl",         # Green inventory membership (bool)
-             "patent_greenness_based_on_CPC_Y_classes_USPTO.pkl"            # Green inventory membership (bool)
+             #"patent_greenness_based_on_CPC.pkl",       # Green inventory membership (2 x bool)
+             #"patent_greenness_based_on_IPC.pkl",       # Green inventory membership (2 x bool)
+             #"patent_greenness_based_on_CPC_Y_classes_patstat.pkl",         # Green inventory membership (bool)
+             #"patent_greenness_based_on_CPC_Y_classes_USPTO.pkl"            # Green inventory membership (bool)
+             "patent_greenness_merged.pkl"              # Green inventory, Envtech, Y Codes membership (3 x bool)
             ]
 
 outputFileName = "green_patents_combined_df.pkl"
