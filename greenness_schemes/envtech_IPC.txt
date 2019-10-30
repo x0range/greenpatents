@@ -1,0 +1,149 @@
+# Search pattern file for OECD ENVTECH green inventory based on CPC classification codes.
+#   Syntax:
+#     - lines starting in "#" are ignored
+#     - simple line entries define one classification code that indicates a green technology
+#     - lines that include a hyphen ("-") indicate a range of classification codes
+#     - lines in square brackets ("[...]") indicate groups of codes that must all be matched
+#           for the same patent in order to be counted as green
+# The strings are searched in USPTO US_Grant_CPC_MCF_Text_2018-08-01.zip entries that have the following form 
+# Example:
+#B21516392310011358E03D   5/00    20130101LI  0 0
+# which includes the classification in positions 18-33:
+#                  E03D   5/00    
+# Other examples (classification code section only):
+#                  B01L   3/508   
+#                  G01N  21/648   
+#                  G01N  33/54373 
+#                  B01J2219/00527 
+#
+B01D   53/34-72
+F23G    7/06
+F23J   15
+F27B    1/18
+C21B    7/22
+C21C    5/38
+F23B   80
+F23C    9
+F23C   10
+B01D   53/92
+B01D   53/94
+B01D   53/96
+B01J   23/38-46
+F01M   13/02-04
+F02B   47/08-10
+F02D   21/06-10
+F02M   25/07
+G01M   15/10
+F02B   47/06
+F02D   41
+F02D   43
+F02D   45
+F02M    3/020-055
+F02M   23
+F02M   25
+F02M   27
+F02M   31/02-18
+F02M   39-71
+F02P    5
+B01D   46
+B01D   47
+B01D   49
+B01D   50
+B01D   51
+B03C    3
+F01N    3
+F01N    5
+F01N    7
+F01N   13
+F01N    9
+F01N   11
+C10L   10/02
+C10L   10/06
+B63J    4
+C02F 
+C09K    3/32
+E03C    1/12
+E03F
+C05F    7
+E02B   15/04-10
+B63B   35/32
+C09K    3/32
+E01H   15
+B65F
+A23K    1/06-10
+A43B    1/12
+A43B   21/14
+B03B    9/06
+B22F    8
+B29B    7/66
+B29B   17
+B30B    9/32
+B62D   67
+B65H   73
+B65D   65/46
+C03B    1/02
+C03C    6/02
+C03C    6/08
+C04B    7/24-30
+C04B   11/26
+C04B   18/04-10
+C04B   33/132
+C08J   11
+C09K   11/01
+C10M  175
+C22B    7
+C22B   19/28-30
+C22B   25/06
+D01G   11
+D21B    1/08-10
+D21B    1/32
+D21C    5/02
+D21H   17/01
+H01B   15/00
+H01J    9/52
+H01M    6/52
+H01M   10/54
+C05F    1
+C05F    5
+C05F    7
+C05F    9
+C05F   17
+C10L    5/46-48
+F23G    5
+F23G    7
+B09B
+C10G    1/10
+A61L   11
+B09C
+F01N   11
+G08B   21/12-14
+#
+F16K   21/06-12
+F16K   21/16-20
+F16L   55/07
+E03C    1/084
+E03D    3/12
+E03D    1/14
+A47K   11/12
+A47K   11/02
+E03D   13/007
+E03D    5/016
+E03B    1/041
+Y02B   40/46
+Y02B   40/56
+A01G   25/02
+A01G   25/06 
+A01G   25/16
+C12N   15/8273
+F01K   23/08-10
+F01D   11
+E03B    5
+E03B    3/06-26
+E03B    9
+E03B    3/04 
+E03B    3/28-38
+E03B    3/02
+E03B    3/03
+E03B    3/00
+E03B    3/40
+E03B   11

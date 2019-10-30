@@ -101,7 +101,7 @@ def main():
                 for IPCGI_val in [True, False]:
                     for Y_Code_val in [True, False]:
                         venn_code = str(int(envtech_val)) + str(int(IPCGI_val)) + str(int(Y_Code_val))
-                        hits = len(df_year[(df_year["envtech"]==envtech_val) & (df_year["IPCGI"]==IPCGI_val) & (df_year["Y_Codes"]==Y_Code_val)])
+                        hits = len(df_year[(df_year["Envtech"]==envtech_val) & (df_year["IPCGI"]==IPCGI_val) & (df_year["Y_Codes"]==Y_Code_val)])
                         venn_q[venn_code] = hits
             f, a = plt.subplots(1, 1, figsize=(5, 4))
             a.set_title("Group " + cl + ", " + str(year))

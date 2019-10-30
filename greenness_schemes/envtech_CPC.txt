@@ -1,0 +1,47 @@
+# Search pattern file for OECD ENVTECH green inventory based on CPC classification codes.
+#   Syntax:
+#     - lines starting in "#" are ignored
+#     - simple line entries define one classification code that indicates a green technology
+#     - lines that include a hyphen ("-") indicate a range of classification codes
+#     - lines in square brackets ("[...]") indicate groups of codes that must all be matched
+#           for the same patent in order to be counted as green
+# The strings are searched in USPTO US_Grant_CPC_MCF_Text_2018-08-01.zip entries that have the following form 
+# Example:
+#B21516392310011358E03D   5/00    20130101LI  0 0
+# which includes the classification in positions 18-33:
+#                  E03D   5/00    
+# Other examples (classification code section only):
+#                  B01L   3/508   
+#                  G01N  21/648   
+#                  G01N  33/54373 
+#                  B01J2219/00527 
+#
+F16K   21/06-12
+F16K   21/16-20
+F16L   55/07
+E03C    1/084
+E03D    3/12
+E03D    1/14
+A47K   11/12
+A47K   11/02
+E03D   13/007
+E03D    5/016
+E03B    1/041
+Y02B   40/46
+Y02B   40/56
+A01G   25/02
+A01G   25/06 
+A01G   25/16
+C12N   15/8273
+F01K   23/08-10
+F01D   11
+E03B    5
+E03B    3/06-26
+E03B    9
+E03B    3/04 
+E03B    3/28-38
+E03B    3/02
+E03B    3/03
+E03B    3/00
+E03B    3/40
+E03B   11
