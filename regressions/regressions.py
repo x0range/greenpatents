@@ -1,3 +1,11 @@
+"""Script to run regressions on finished data frame. Can be run as a whole 
+    python3 regressions.py
+or in 3 chunks
+    python3 regressions.py 1
+    python3 regressions.py 2
+    python3 regressions.py 3
+"""
+
 import statsmodels
 import statsmodels.stats.api as sms
 import statsmodels.formula.api as smf
@@ -7,15 +15,24 @@ import pandas as pd
 import numpy as np
 import pickle
 import sys
-import pdb
+#import pdb
 
+"""RegressionSetup class. Holds data and scripts for regressions."""
 class RegressionSetup():
     def __init__(self, chunk=None):
+        """ Constructor. Loads data and renames columns.
+            Arguments
+                chunk: int - chunk ID
+            Returns class instance."""
+        """ Set chunk ID if present and appropriate output file name infix."""
         self.chunk = chunk 
         assert chunk is None or chunk in [1, 2, 3]
         self.filename_infix = "_" + str(chunk) if chunk is not None else ""
         
+        """ Load data"""
         self.df = pd.read_pickle("CPC_sorted_green_patents_combined_df.pkl")
+        
+        """ Rename columns"""
         self.df.rename(columns={'Pagerank (all)': 'pagerank', \
                                 'Received citations (all)': 'forward_citations', \
                                 'Pagerank (assignee citations only)': 'pagerank_AssigneeOnly', \
@@ -26,17 +43,27 @@ class RegressionSetup():
                                 '30_year_lag_citations': 'thirty_year_lag_citations', \
                                 'granted year': 'granted_year'}, inplace=True)
                                 
-        """Convert bools to numeric, otherwise regressions will be run on two y values (one for True, one fore False)"""
+        """ Convert bools to numeric, otherwise regressions will be run on two y values (one for True, one fore False)"""
         self.df["urban"] = self.df["urban"].astype('float64')
         self.df["private"] = self.df["private"].astype('float64')
         
-        #self.fitting_results_detail = {}
+        """ Prepare output variables"""
         self.fitting_results = {}
         self.fitting_failures = {}
+        
+        """ Enpty results txt file"""
         with open("fitting_results{0:s}.txt".format(self.filename_infix), "w") as wfile:
             wfile.write("")
         
     def run_regression(self, scheme, regressiontype, y_var, x_var, fe_var):
+        """ Regression method.
+            Arguments:
+                scheme: string - greenness scheme (Envtech, IPCGI, Y_Codes) or conbination of greenness schemes 
+                                    to be tested
+                y_var: string - endogeneous variable (column name)
+                x_var: list of strings - regressors (column names)
+                fe_var: list of strings - fixed effects regressors (column names)
+            Returns None."""
         """interpret scheme"""
         greenness_Envtech = True if "Envtech" in scheme else False
         greenness_IPCGI = True if "IPCGI" in scheme else False
@@ -193,16 +220,24 @@ class RegressionSetup():
 
     
     def save(self):
-        #with open("fitting_results_detail.pkl", "wb") as wfile:
-        #    pickle.dump(self.fitting_results_detail, wfile, protocol=pickle.HIGHEST_PROTOCOL)
+        """ Method to save results.
+            Arguments: None.
+            Returns None.
+            """
         with open("fitting_results{0:s}.pkl".format(self.filename_infix), "wb") as wfile:
             pickle.dump(self.fitting_results, wfile, protocol=pickle.HIGHEST_PROTOCOL)
         with open("fitting_failures{0:s}.pkl".format(self.filename_infix), "wb") as wfile:
             pickle.dump(self.fitting_failures, wfile, protocol=pickle.HIGHEST_PROTOCOL)
     
     def run(self):
+        """ Run method. Governs regression to be run
+            Arguments: None.
+            Returns None.
+            """
+        """ Greenness scheme combinations to be investigated"""
         schemes = ["Envtech", "IPCGI", "Y_Codes", "Envtech_IPCGI", "IPCGI_Y_Codes", "Y_Codes_Envtech", \
                                                                             "Envtech_IPCGI_Y_Codes", "Any"]
+        """ Endogeneous variables to be investigated"""
         y_vars = ['pagerank', 'forward_citations', 'five_year_lag_citations', 'ten_year_lag_citations', \
                 'twenty_year_lag_citations', 'thirty_year_lag_citations', 'urban', 'private', \
                 'pagerank_AssigneeOnly', 'forward_citations_AssigneeOnly']
@@ -211,14 +246,19 @@ class RegressionSetup():
                 ['ten_year_lag_citations', 'twenty_year_lag_citations', 'thirty_year_lag_citations'], 
                 ['urban', 'private', 'pagerank_AssigneeOnly', 'forward_citations_AssigneeOnly']]
             y_vars = y_vars[self.chunk-1]
+        
+        """ Start regressions"""
         for scheme in schemes:
             for y_var in y_vars:
                 self.run_regression(scheme, 'logit', y_var, ["green"], ["granted_year"])
                 self.run_regression(scheme, 'ols', y_var, ["green"], ["granted_year"])
         
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    """ Construct regression setup.
+        Accept chunk ID as argument"""
+    if len(sys.argv) > 1: 
         RS = RegressionSetup(int(sys.argv[1]))
     else:
         RS = RegressionSetup()
+    """ Run regressions"""
     RS.run()
