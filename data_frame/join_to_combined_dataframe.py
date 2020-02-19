@@ -5,6 +5,7 @@ import pdb
 
 def join_all_dfs(filenames, outputfilepickle, outputfilefeather, patent_codes_files):
     colnames = {"detected_green_patents.pkl": "Shapira et al. GI pattern",
+                "detected_green_patents_ecology_full_text.pkl": "Fulltext_Keyword_Ecology"
                 #"patent_greenness_merged.pkl": ["Envtech", "IPCGI", "Y_Codes"],      #have already correct filenames
                 }
     
@@ -17,8 +18,8 @@ def join_all_dfs(filenames, outputfilepickle, outputfilefeather, patent_codes_fi
         merge_direction = 'left' if i>0 else 'right'
         if filenames[i] in ["patent_greenness_merged.pkl", "patent_greenness_based_on_CPC_all.pkl", "patent_greenness_based_on_CPC_Y_classes_USPTO.pkl"]:     # in this file the indices (patent numbers) have for some reason a leading space character
                 df.index = df.index.str.strip() 
-        if filenames[i] in ["detected_green_patents.pkl"]:
-            colname = colnames["detected_green_patents.pkl"]
+        if filenames[i] in ["detected_green_patents.pkl", "detected_green_patents_ecology_full_text.pkl"]:
+            colname = colnames[filenames[i]]
             df = pd_from_gi_table(df, colname)
         elif colnames.get(filenames[i]):
             df.columns = colnames[filenames[i]]
@@ -35,6 +36,9 @@ def join_all_dfs(filenames, outputfilepickle, outputfilefeather, patent_codes_fi
             print("couldn't merge")
             pdb.set_trace()
     
+    pddf = pddf.sort_values("granted date")
+    pddf["Pagerank (all) normalized"] = pddf["Pagerank (all)"] / pddf["Pagerank (all)"].rolling(window=100000, center=True, min_periods=40000).mean()
+    pddf["Pagerank (assignee citations only) normalized"] = pddf["Pagerank (assignee citations only)"] / pddf["Pagerank (assignee citations only)"].rolling(window=100000, center=True, min_periods=10000).mean()
     print(pddf.info())  # memory usage info
     
     """ free some memory """
@@ -79,6 +83,7 @@ filenames = ["patents_dates_years.pkl",                 # Application and grant 
              "patents_lag_citation_counts_df.pkl",      # Lag citation counts 5y, 10y, 20y, 30y, (4x float)
              "patents_table.pkl",                       # Geographic, assignee, etc data
              "detected_green_patents.pkl",              # Green patents detection following Shapira
+             "detected_green_patents_ecology_full_text.pkl",    # Green patents detection with simple ecology detection scheme in full text
              #"patent_greenness_based_on_CPC.pkl",       # Green inventory membership (2 x bool)
              #"patent_greenness_based_on_IPC.pkl",       # Green inventory membership (2 x bool)
              #"patent_greenness_based_on_CPC_Y_classes_patstat.pkl",         # Green inventory membership (bool)
