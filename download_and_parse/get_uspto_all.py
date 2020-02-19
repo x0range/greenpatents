@@ -28,6 +28,8 @@ import datetime
 import re
 import pdb
 import glob
+import numpy as np
+import gzip
 from random import randint
 from time import sleep
 
@@ -38,12 +40,12 @@ def wku_confirm_checksum(wku):
         apn += (i+2)*int(pd)
         #print(apn, i, pd)
     check = (11 - apn % 11) % 10 # This is an ISBN type mod 11 checksum
+    #print(wku)
     try:
         assert check == int(wku[-1]), "WKU check digit does not match: WKU: {0:s} WKU Check digit: {1:1d} Computed check digit {2:1d}".format(wku, int(wku[-1]), check)
     except:
         #pdb.set_trace()
-        print("WKU check digit does not match: WKU: {0:s} WKU Check digit: {1:1d} Computed check digit {2:1d}".format(wku, int(wku[-1]), check))
-        #print("WKU check digit does not match: WKU: {0:s} WKU Check digit: {1:} Computed check digit {2:1d}".format(wku, wku[-1], check))
+        #print("WKU check digit does not match: WKU: {0:s} WKU Check digit: {1:1d} Computed check digit {2:1d}".format(wku, int(wku[-1]), check))
         pass
     
 def parse_wku(wku_raw):
@@ -67,84 +69,199 @@ def parse_wku(wku_raw):
         wku = wku_sep[0][1:-1]
     else:
         wku = wku_sep[0] + wku_sep[1][1:-1]
+    #print("Returning WKU: {0:s}".format(wku))
     return wku
     
 def parse_patent_record_txt(filename):
     returndict = {}
     titledict = {}
+    descriptiondict = {}
+    claimsdict = {}
     #rfile = open(filename, "r")
     rfile = open(filename, "r", encoding="utf8", errors='ignore')
     wku = None
     previouswku = None
     title = None
     abstract = None
+    description = ""
+    claims = ""
     abstractopen = False
-    palopen = False
+    abstractclosed = False
+    descriptionopen = False
+    descriptionclosed = False
+    descriptionlineclosedwith = None
+    claimsopen = False
+    claimsclosed = False
+    abstractpalopen = False
+    long_abstract_error_thrown = False
     for line in rfile:
-        if not abstractopen:
+        #print(line)
+        #print("!!!claimsclosed", claimsclosed, " claimsopen", claimsopen)
+        #pdb.set_trace()
+        if line[:4] in ["PATN", "WKU "]:
+            """ Saving previous patent"""
+            if wku is not None:                            
+                #pdb.set_trace()
+                returndict[wku] = abstract
+                titledict[wku] = title
+                descriptiondict[wku] = description
+                claimsdict[wku] = claims
+                previouswku = wku
+                wku = None
+                if line[:4] == "WKU ":
+                    print("Something wrong: We must have missed the PATN statement. Continuing... ", file=sys.stderr)
+            elif (title is not None) or (abstract is not None) or len(description) > 0 or len(claims) > 0:
+                print("Patent dara without corresponding WKU detected, disregarding data", file=sys.stderr)
+
+            """ Resetting data collection variables"""
+            abstract = None
+            title = None
+            description = ""
+            claims = ""
+            abstractclosed = False
+            descriptionclosed = False
+            descriptionlineclosedwith = None
+            claimsclosed = False
+            abstractopen = False
+            descriptionopen = False
+            claimsopen = False
+            long_abstract_error_thrown = False
+            abstractpalopen = False
+            
+            """ Parsing WKU"""
             if line[:4] == "WKU ":
-                if wku is not None:
-                    returndict[wku] = abstract
-                    previouswku = wku
                 wku_raw = line[4:]
                 wku = parse_wku(wku_raw)
-            elif line[:4] == "TTL ":
+        elif (not abstractopen) and (not claimsopen) and (not descriptionopen):
+            if line[:4] == "TTL ":
                 if title is not None and previouswku[0] != "D": #design patents usually do not have an abstract
                     print("Something wrong: Found two titles for the same record", file=sys.stderr)
                 title = line[4:].strip()
             elif line[:4] == "ABST":
                 #pdb.set_trace()
-                abstractopen = True                
-        else:
+                abstractopen = True  
+            elif line[:4] == "CLMS":
+                claimsopen = True
+            elif line[:4] in ["BSUM", "DRWD", "DETD"]:
+                descriptionopen = True                    
+        elif (abstractopen) and (not claimsopen) and (not descriptionopen):
+            try:
+                assert not abstractclosed
+            except:
+                print("Something wrong here. Found a second abstract in the same patent. Replacing the first. This will probably result in problems.", file=sys.stderr)
+                abstract = ""
+                abstractclosed = False
             if line[:4] in ["PAL ", "PA1 ", "PA0 ", "PA2 ", "PA3 ", "PA4 ", "PA5 ", "PA6 ", "PA7 ", "PA8 ", "PA9 ", "TBL ", "EQU ", "PAR "]:
                 line = line[4:]
                 line = line.strip()
-                if not palopen and abstract is None:
+                if not abstractpalopen and abstract is None:
                     abstract = ""
-                    palopen = True
-                elif not palopen:
+                    abstractpalopen = True
+                elif not abstractpalopen:
                     print("Something wrong here, this may be a second abstract in the same patent or so???", file=sys.stderr)
                 abstract += line + " "
-            elif line[0] not in [" ", "\n"]:
+            elif line[0] not in [" ", "\n"]:            # New section should close the abstract
                 nextsection = line.strip()
                 try:
                     assert nextsection in ["BSUM", "PARN", "GOVT"], "Unexpected end of abstract section encountered: {0:s}".format(nextsection)
                 except:
                     print("Unexpected end of abstract section encountered: {0:s}".format(nextsection))
-                    pass
-                try:
-                    assert wku is not None, "None type WKU detected, disregarding abstract"
-                    returndict[wku] = abstract
-                except:
-                    print("None type WKU detected, disregarding abstract")
-                    pass
-                try:
-                    assert (wku is not None) and (title is not None), "None type WKU or title detected, disregarding abstract"
-                    titledict[wku] = title
-                except:
-                    print("None type WKU detected, disregarding abstract")
-                    pass
-                wku = None
-                abstract = None
-                title = None
+                    #pdb.set_trace()
                 abstractopen = False
-                palopen = False
+                apstractclosed = True
+                abstractpalopen = False
+                if line[:4] == "CLMS":
+                    claimsopen = True
+                elif line[:4] in ["BSUM", "DRWD", "DETD"]:
+                    descriptionopen = True                    
+                if long_abstract_error_thrown:
+                    print("Something wrong here, abstract {1:s} seeme excessively long: \n\n {0:s}\n\n\n\n".format(abstract, str(wku)), file=sys.stderr)
+                    #print(wku)
+                    #print(abstract)
             else:
                 try:
-                    assert palopen, "Unexpected abstract line encountered: {0:s}".format(line)
+                    assert abstractpalopen, "Unexpected abstract line encountered: {0:s}".format(line)
                 except:
                     print("Unexpected abstract line encountered: {0:s}".format(line))
+                    #pdb.set_trace()
                     if len(line.strip()) > 15:
-                        palopen = True
+                        abstractpalopen = True
                         abstract = ""
-                if palopen:
+                if abstractpalopen:
                     line = line.strip()
                     try:
                         abstract += line + " "
                     except:
                         pdb.set_trace()
+            if (abstract is not None) and (len(abstract)>3000) and (not long_abstract_error_thrown):
+                long_abstract_error_thrown = True
+                print("Something wrong here, abstract seeme excessively long: \n\n {0:s}\n\n\n\n".format(abstract), file=sys.stderr)
+        elif (not abstractopen) and (not claimsopen) and (descriptionopen):
+            #pdb.set_trace()
+            try:
+                assert not descriptionclosed
+            except:
+                print("Something wrong here. Found a second description in the same patent. First description was closed with ",
+                      "\n{0:s}\nCurrently, description is \n{1:s}\n This will probably result in problems.".format(descriptionlineclosedwith, description), file=sys.stderr)
+                #pdb.set_trace()
+                #description = ""
+                descriptionclosed = False
+            if (line[:4] in ["PAL ", "PAC ", "PA1 ", "PA0 ", "PA2 ", "PA3 ", "PA4 ", "PA5 ", "PA6 ", "PA7 ", "PA8 ", "PA9 ", "TBL ", "EQU ", "PAR ", "FIG.", "FNT ", \
+					"PAL\n", "PAC\n", "PA1\n", "PA0\n", "PA2\n", "PA3\n", "PA4\n", "PA5\n", "PA6\n", "PA7\n", "PA8\n", "PA9\n", "TBL\n", "EQU\n", "PAR\n", "FNT\n", "TBL3"]):# or (line[:3] in ["TBL"]):
+                line = line[4:]
+                line = line.strip()
+                description += line + " "
+            elif line[:4] in ["BSUM", "DRWD", "DETD"]:
+                description += "\n\n"
+            elif line[0] not in [" ", "\n"]:
+                #print("Closing description with line: {0:s}".format(line))
+                nextsection = line.strip()
+                descriptionopen = False
+                descriptionclosed = True
+                descriptionlineclosedwith = line
+                if line[:4] == "CLMS":
+                    claimsopen = True
+                elif line[:4] == "ABST":
+                    abstractopen = True
+            else:
+                line = line.strip()
+                description += line + " "
+        elif (not abstractopen) and (claimsopen) and (not descriptionopen):
+            #pdb.set_trace()
+            try:
+                assert not claimsclosed
+            except:
+                print("Something wrong here. Found a second set of claims in the same patent. This will probably result in problems.", file=sys.stderr)
+                pdb.set_trace()
+                claimsclosed = False
+            if line[:4] in ["PAL ", "PAC ", "PA1 ", "PA0 ", "PA2 ", "PA3 ", "PA4 ", "PA5 ", "PA6 ", "PA7 ", "PA8 ", "PA9 ", "TBL ", "EQU ", "PAR "]:
+                line = line[4:]
+                line = line.strip()
+                claims += line + " "
+            elif line[:4] in ["NUM ", "STM "]:
+                claims += "\n\n"
+            elif line[0] not in [" ", "\n"]:
+                #print("Closing claims with line: {0:s}".format(line))
+                nextsection = line.strip()
+                claimsopen = False
+                claimsclosed = True
+                if line[:4] in ["BSUM", "DRWD", "DETD"]:
+                    descriptionopen = True
+                elif line[:4] == "ABST":
+                    abstractopen = True
+            else:
+                line = line.strip()
+                claims += line + " "           
+    
     rfile.close()
-    return returndict, titledict
+    
+    # Saving last patent
+    returndict[wku] = abstract
+    titledict[wku] = title
+    descriptiondict[wku] = description
+    claimsdict[wku] = claims
+    #pdb.set_trace()
+    return returndict, titledict, descriptiondict, claimsdict
 
 def xml_get_abstract(soup):
     try:
@@ -167,30 +284,59 @@ def xml_get_title(soup):
         title = None
     return title
 
+def xml_get_description(soup):
+    try:
+        d = soup.find("us-patent-grant").find("description")
+        # TODO: remove UTF8 codes (&#x2019; etc)                    # automatically
+        # TODO: remove MATHS->math, table-> table, figref??         # Done
+        #d = ???
+        _ = [tag.extract() for tag in d(['table', 'maths'])]        # Cannot deal with '?in-line-formulae'
+        d = d.text
+    except:
+        d = None
+    return d
+
+def xml_get_claims(soup):
+    try:
+        cl = soup.find("us-patent-grant").find("claims").text
+    except:
+        cl = None
+    return cl
+
 def parse_single_xml_patent(xml_block):
     soup = BeautifulSoup(xml_block, "xml")
     wku = xml_get_wku(soup)
-    title = xml_get_title(soup)
     if wku is not None:
         abstract = xml_get_abstract(soup)
+        title = xml_get_title(soup)
+        description = xml_get_description(soup)
+        claims = xml_get_claims(soup)
+        #if np.random.random() < 0.002:
+        #    pdb.set_trace()
     else:
         abstract = None
-    return wku, title, abstract
+        title = None
+        description = None
+        claims = None
+    return wku, title, abstract, description, claims
 
 def parse_patent_record_xml(filename):
     returndict = {}
     titledict = {}
+    descriptiondict = {}
+    claimsdict = {}
     rfile = open(filename, "r", encoding="utf8", errors='ignore')
     xmlopen = False
     xmlblock = ""
     for line in rfile:
         if line[:6] == "<?xml ":
             if xmlopen:             # new xml block
-                wku, title, abstract = parse_single_xml_patent(xmlblock)
+                wku, title, abstract, description, claims = parse_single_xml_patent(xmlblock)
                 if wku is not None:
                     returndict[wku] = abstract
-                    if title is not None:
-                        titledict[wku] = title
+                    titledict[wku] = title
+                    descriptiondict[wku] = description
+                    claimsdict[wku] = claims
                 xmlblock = ""
                 xmlopen = False
             xmlopen = True
@@ -198,13 +344,14 @@ def parse_patent_record_xml(filename):
         else:
             xmlblock += line
         #pfile =  open("ipg050419.xml",'r')
-    wku, title, abstract = parse_single_xml_patent(xmlblock)
+    wku, title, abstract, description, claims = parse_single_xml_patent(xmlblock)
     if wku is not None:
         returndict[wku] = abstract
-        if title is not None:
-            titledict[wku] = title
+        titledict[wku] = title
+        descriptiondict[wku] = description
+        claimsdict[wku] = claims
     rfile.close()
-    return returndict, titledict
+    return returndict, titledict, descriptiondict, claimsdict
 
 def sgm_get_abstract_manual(xml_block):
     sgmblockc = xml_block.split("\n")
@@ -233,6 +380,23 @@ def sgm_get_abstract(soup, xml_block):
         abstract = None
     return abstract
 
+def sgm_get_description(soup):                    
+    try:
+        # If this fails because of recursion depth try sys.setrecursionlimit(10000) # default is 1000
+        d = soup.find("SDODE")
+        _ = [tag.extract() for tag in d(['SDOCL', 'THEAD', 'TBODY', 'math', 'EMI'])]
+        d = d.text
+    except:
+        d = None
+    return d
+
+def sgm_get_claims(soup):
+    try:
+        cl = soup.find("CL").text
+    except:
+        cl = None
+    return cl
+
 def sgm_get_wku(soup):
     try:
         wku = soup.find("B110").find("DNUM").text
@@ -250,43 +414,54 @@ def sgm_get_title(soup):
 def parse_single_sgm_patent(sgm_xml_block):
     soup = BeautifulSoup(sgm_xml_block, "xml")
     wku = sgm_get_wku(soup)
-    title = sgm_get_title(soup)
     #if "1262" in wku:
     #    abstract = sgm_get_abstract(soup, xml_block, True)
     #    pdb.set_trace()
     if wku is not None:
         abstract = sgm_get_abstract(soup, sgm_xml_block)
+        title = sgm_get_title(soup)
+        claims = sgm_get_claims(soup)
+        description = sgm_get_description(soup)
+        #if np.random.random() < 0.0003:
+        #    pdb.set_trace()
     else:
         abstract = None
-    return wku, title, abstract
+        title = None
+        description = None
+        claims = None
+    return wku, title, abstract, description, claims
 
 def parse_patent_record_sgm(filename):
     returndict = {}
     titledict = {}
+    descriptiondict = {}
+    claimsdict = {}
     rfile = open(filename, "r", encoding="utf8", errors='ignore')
     xmlopen = False
     xmlblock = ""
     for line in rfile:
         if line[:8] == "<PATDOC ":
             if xmlopen:             # new sgm quasi-xml block
-                wku, title, abstract = parse_single_sgm_patent(xmlblock)
+                wku, title, abstract, description, claims = parse_single_sgm_patent(xmlblock)
                 if wku is not None:
                     returndict[wku] = abstract
-                    if title is not None:
-                        titledict[wku] = title
+                    titledict[wku] = title
+                    descriptiondict[wku] = description
+                    claimsdict[wku] = claims
                 xmlblock = ""
                 xmlopen = False
             xmlopen = True
             xmlblock += line
         else:
             xmlblock += line
-    wku, title, abstract = parse_single_sgm_patent(xmlblock)
+    wku, title, abstract, description, claims = parse_single_sgm_patent(xmlblock)
     if wku is not None:
         returndict[wku] = abstract
-        if title is not None:
-            titledict[wku] = title
+        titledict[wku] = title
+        descriptiondict[wku] = description
+        claimsdict[wku] = claims
     rfile.close()
-    return returndict, titledict
+    return returndict, titledict, descriptiondict, claimsdict
 
 def test_parse_filetype(filename, fileform):
     markers = {"txt": "WKU ", "sgm": "<PATDOC ", "xml": "<us-patent-grant "}
@@ -329,18 +504,32 @@ def get_urls_year(year):
             names.append(fname)
     return urls, names
 
-def pickle_abstract_n_title(cname, abstract_dict, title_dict):
-        pickle_filename_abstract = "abstracts_" + cname[:-4] + ".pkl"
-        pickle_filename_title = "titles_" + cname[:-4] + ".pkl"
-        for to_be_pickled, pickle_filename in [(abstract_dict, pickle_filename_abstract), (title_dict, pickle_filename_title)]:
-            if os.path.isfile(pickle_filename):
-                datestring = datetime.date.strftime(datetime.datetime.now(),"-%d-%m-%Y-at-%H-%M-%S")
-                newname = pickle_filename.split(".")[0] + datestring + pickle_filename.split(".")[0]
-                os.rename(pickle_filename, newname)
-            with open(pickle_filename, 'wb') as outputfile:
-                pickle.dump(to_be_pickled, outputfile, pickle.HIGHEST_PROTOCOL)
-    
-def download_n_parse_year(year, start=None):
+def pickle_abstract_n_title(cname, abstract_dict, title_dict, descr_dict, claims_dict):                # TODO: Add saving text and claims dict
+    """parse file names"""
+    dir_end = cname.rfind("/") + 1
+    gzpickle_filename_abstract = cname[:dir_end] + "abstracts/abstracts_" + cname[dir_end:-4] + ".pkl.gz"
+    gzpickle_filename_title = cname[:dir_end] + "titles/titles_" + cname[dir_end:-4] + ".pkl.gz"
+    gzpickle_filename_description = cname[:dir_end] + "descriptions/descriptions_" + cname[dir_end:-4] + ".pkl.gz"
+    gzpickle_filename_claims = cname[:dir_end] + "claims/claims_" + cname[dir_end:-4] + ".pkl.gz"
+    for to_be_pickled, gzpickle_filename in [(abstract_dict, gzpickle_filename_abstract), \
+                                           (title_dict, gzpickle_filename_title), \
+                                           (descr_dict, gzpickle_filename_description), \
+                                           (claims_dict, gzpickle_filename_claims)]:
+        if os.path.isfile(gzpickle_filename):
+            datestring = datetime.date.strftime(datetime.datetime.now(),"-%d-%m-%Y-at-%H-%M-%S")
+            newname = gzpickle_filename.split(".")[0] + datestring + "." + gzpickle_filename.split(".")[1] + "." + gzpickle_filename.split(".")[2]
+            os.rename(gzpickle_filename, newname)
+        #with open(pickle_filename, 'wb') as outputfile:
+        #    pickle.dump(to_be_pickled, outputfile, pickle.HIGHEST_PROTOCOL)
+        with gzip.GzipFile(gzpickle_filename, 'w') as outputfile:
+            pickle.dump(to_be_pickled, outputfile, pickle.HIGHEST_PROTOCOL)
+        #
+        # To reload, do:
+        #with gzip.GzipFile(gzpickle_filename, 'r') as gzf:
+        #    reloaded = pickle.load(gzf)
+
+
+def download_n_parse_year(year, start=None, raw_file_directory="/mnt/usb4/datalake_patents_eco"):
     urls, names = get_urls_year(year) 
     ## 3 
     #urls = urls[2:3]
@@ -372,18 +561,20 @@ def download_n_parse_year(year, start=None):
         #i = 0
         #if True:
         # parse 
-        abstract_dict, title_dict = parse_file(files_extracted[0])
+        abstract_dict, title_dict, description_dict, claims_dict = parse_file(files_extracted[0])
+        pdb.set_trace()
         # rm extracted file
         os.remove(files_extracted[0])
-        os.system("mv {0:s} /mnt/usb4/datalake_patents_eco/ > /dev/null 2>&1".format(names[i]))
+        os.system("mv {0:s} {1:s}/ > /dev/null 2>&1".format(names[i], raw_file_directory))
         # save pickle
         name = names[i]
-        pickle_abstract_n_title(name, abstract_dict, title_dict)
+        pickle_abstract_n_title(name, abstract_dict, title_dict, description_dict, claims_dict)
         
-def reread_files(names):
+def reread_files(names, raw_file_directory="/mnt/usb4/datalake_patents_eco", work_directory="/mnt/usb2/GreenPatentsProject/raw_data/work/"):
+    os.chdir(work_directory)
     for i in range(len(names)):
         print("    Rereading and parsing item {0:2d}: {1:s}".format(i, names[i]))
-        os.system("cp /mnt/usb4/datalake_patents_eco/{0:s} ./ > /dev/null 2>&1".format(names[i]))
+        os.system("cp {1:s}/{0:s} ./ > /dev/null 2>&1".format(names[i], raw_file_directory))
         with ZipFile(names[i], 'r') as zip:
             files_extracted = zip.namelist()
             try:
@@ -393,11 +584,11 @@ def reread_files(names):
                 print(files_extracted)
             zip.extract(files_extracted[0])
         #os.remove(names[i])
-        abstract_dict, title_dict = parse_file(files_extracted[0])
+        abstract_dict, title_dict, description_dict, claims_dict = parse_file(files_extracted[0])
         os.remove(files_extracted[0])
         #save as pickle
         name = names[i]
-        pickle_abstract_n_title(name, abstract_dict, title_dict)
+        pickle_abstract_n_title(name, abstract_dict, title_dict, description_dict, claims_dict)
         
 
 # main entry point
@@ -410,11 +601,17 @@ if __name__ == "__main__":
     #start = "pftaps19900612_wk24.zip"
     #years = list(range(2016, 2019))
     #start = "ipg160830.zip"
+    years = []        # downloading off
     
     """Already downloaded files can be reread by calling reread_files()"""
     #files = ["pftaps19761228_wk52.zip", "pg010102.zip", "pg010109.zip", "pg010911.zip", "pg020108.zip", "pg020212.zip", "pg020402.zip", "ipg160112.zip", "pftaps20010102_wk01.zip"]
-    files = glob.glob("*.zip")
-    files = []
+    raw_file_directory = "/mnt/usb2/GreenPatentsProject/raw_data/PatentsRaw"
+    #raw_file_directory = "/mnt/usb2/GreenPatentsProject/raw_data/PatentsRaw2/testunpack"
+    files = glob.glob("{0:s}/*.zip".format(raw_file_directory))#[2:]
+    files = glob.glob("{0:s}/p*.zip".format(raw_file_directory))#[2:]
+    print(files)
+    #pdb.set_trace()
+    #files = []
     reread_files(files)
     #exit(0)
     

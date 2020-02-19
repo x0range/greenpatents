@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import glob
+import gzip
 from inspect import getmembers, isfunction
 import greenfinder_patterns
 
@@ -18,9 +19,9 @@ def open_file(tfile):
     afile = tfile.replace("titles_", "abstracts_")
     assert os.path.exists(afile)
     """read both files"""
-    with open(tfile, "rb") as f:
+    with gzip.GzipFile(tfile, 'r') as f:
         titles = pickle.load(f)
-    with open(afile, "rb") as f:
+    with gzip.GzipFile(afile, 'r') as f:
         abstracts = pickle.load(f)
     """obtain keys (patent IDs)"""
     keys = list(titles.keys())
